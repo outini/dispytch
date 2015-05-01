@@ -24,14 +24,13 @@
 
 import os
 import sys
-import docopt
 import json
 
 
 def output_json(data):
     """Output passed datas as json
 
-    :arg datas: Data to output as json, type must be supported by json format
+    :param dict data: Data to output as json
     """
     print(json.dumps(data, indent=2))
 
@@ -39,36 +38,33 @@ def output_json(data):
 def parse_documentpath(string):
     """Parse URL document path and return datas dict
 
-    :arg str string: Document path REST call
+    :param str string: Document path REST call
     :return: Positionnal arguments from parsed document path
     :rtype: list
     """
-    fields = ["method", "target", "datatype", "cf", "start", "stop", "tmpl"]
-    values = string.split("/")[2:]
-    if len(values) == 6:
-        values.append(None)
-    return dict(zip(fields, values))
+    # document path starts with '/', exclude the first empty element
+    return string.split("/")[1:]
 
 
 def parse_urlencoded(string):
     """Parse URL-Encoded format and return datas dict
 
-    :arg str string: URL-Encoded string
+    :param str string: URL-Encoded string
     :return: Named arguments from parsed URL-Encoded string
     :rtype: dict
     """
-    datas = {}
+    kwargs = {}
     for field in string.split("&"):
         if "=" in field:
             key, val = field.split("=", 1)
-            datas.update({key: val})
-    return datas
+            kwargs.update({key: val})
+    return kwargs
 
 
 def receive_request():
     """Receive request from GET, POST or cli methods
 
-    :return: Tuple of parsed positionnal and named arguments
+    :return: Parsed positionnal and named arguments as :func:`tuple`
     :rtype: tuple
     """
     method = os.environ.get('REQUEST_METHOD')
@@ -96,6 +92,19 @@ def receive_request():
             datas[0].extend(parse_documentpath(req_uri))
 
     return datas
+
+
+def dispatch(args, kwargs):
+    """Dispatch request args and kwargs to the selected module
+
+    :param list args: Positionnal args to pass to the module
+    :param dict kwargs: Named args to pass to the module
+
+    :return: Data returned by module
+    :rtype: dict
+    """
+    data = None
+    return {'result': data}
 
 
 if __name__ == "__main__":
