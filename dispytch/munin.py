@@ -55,11 +55,15 @@ Exemple:
 import os
 
 
+_log = logging.getLogger("dispytch")
+
+
 def handle_request(*args, **kwargs):
     """Main module entry point
     """
 
-    print(args)
-    print(kwargs)
+    _log.debug("handling new request")
+    _log.debug("args: {0}".format(args))
+    _log.debug("kwargs: {0}".format(kwargs))
 
     return {}
