@@ -10,9 +10,7 @@
 # If not defined, dispatcher will assume commandline call
 
 export REQUEST_METHOD="GET"
-
-export REQUEST_URI="/api.munin/by-ip/1.1.1.1/cpu/AVERAGE/now-2h/now"
-export DOCUMENT_PATH="$REQUEST_URI"
+export REQUEST_URI="/munin/by-ip/1.1.1.1/cpu/AVERAGE/now-2h/now"
 
 # It is assumed you runned this script from the repository root
 python ./dispytch/__init__.py

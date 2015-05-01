@@ -22,12 +22,19 @@
 #    along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 """dispytch - Modular REST API dispatcher in Python
+
+CLI Usage:
+    dispytch <request_uri>
 """
 
 
 import os
 import sys
 import json
+
+
+EXIT_USAGE = 2
+EXIT_HANDLE_ERROR = 3
 
 
 def output_json(data):
@@ -41,7 +48,7 @@ def output_json(data):
 def parse_documentpath(string):
     """Parse URL document path and return datas dict
 
-    :param str string: Document path REST call
+    :param str string: Documentpath REST call
     :return: Positionnal arguments from parsed document path
     :rtype: list
     """
@@ -64,13 +71,14 @@ def parse_urlencoded(string):
     return kwargs
 
 
-def receive_request():
-    """Receive request from GET, POST or cli methods
+def receive_request(method):
+    """Receive request for the specified method
+
+    :param str method: Method used for the request, may be GET or POST
 
     :return: Parsed positionnal and named arguments as :func:`tuple`
     :rtype: tuple
     """
-    method = os.environ.get('REQUEST_METHOD')
     datas = ([], {})
 
     print("method: {0}".format(method))
@@ -84,7 +92,7 @@ def receive_request():
         datas[1].update(parse_urlencoded(sys.stdin.read()))
 
     elif method == "GET":
-        # retreive REQUEST_URI from environment
+        # retreive REQUEST_URI from call, or environment instead
         req_uri = os.environ.get('REQUEST_URI', '')
         print("requri: {0}".format(req_uri))
         if "?" in req_uri:
@@ -108,21 +116,42 @@ def dispatch(args, kwargs):
     :rtype: dict
     """
     data = None
+    target_module = None
+
+    # retrieve the required known module using dispatch info from request
+    if len(args):
+        dispatch_info = args[0]
+
+    try:
+        module = __import__(target_module)
+        data = module.handle_request(*args, **kwargs)
+    except TypeError, ValueError:
+        raise ImportError("No module found to handle the request")
+
     return {'result': data}
 
 
 if __name__ == "__main__":
-    print "Content-type: text/plain"
-    print ""
+    # Test request method to handle commandline
+    method = os.environ.get('REQUEST_METHOD')
+
+    if method is None:
+        if len(sys.argv) == 2:
+            os.environ['REQUEST_URI'] = sys.argv[1]
+        else:
+            print(__doc__)
+            exit(EXIT_USAGE)
 
     try:
-        (args, kwargs) = receive_request()
-        dispatch(args, kwargs)
-    except Exception as e:
+        print "Content-type: text/plain"
+        print ""
+        (args, kwargs) = receive_request(method)
+        output_json(dispatch(args, kwargs))
+    except Exception:
         import traceback
         info = sys.exc_info()
         output_json({'error': info[1].message, })
-        print('\n# '.join(__doc__.split("\n")))
+        print('# ' + '\n# '.join(__doc__.split("\n")))
 
         # For debug purposes
-        print ''.join(traceback.format_exception(*info))
+        #print ''.join(traceback.format_exception(*info))
