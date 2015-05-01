@@ -24,31 +24,27 @@ import os
 
 EXIT_CFG_SYNTAX=1
 
-CONF_NAME='dispytch.conf'
+_CONF_NAME='dispytch.conf'
 
-config_dict = {}
+_config_dict = {}
 
-def get_file_path():
-    """
-    Get file path
+def _get_file_path():
+    """Get file path
 
     :return: path
     :rtype: string
     """
-    return os.path.sep.join([os.path.dirname(__file__), CONF_NAME])
+    return os.path.sep.join([os.path.dirname(__file__), _CONF_NAME])
 
 
-def load_config_file():
-    """
-    Load config file
+def _load_config_file():
+    """Load config file
 
     Configuration file dispytch.conf should be in dispytch directory
     
     :return: ConfigParser
     """
-    config_file = get_file_path()
-    print(config_file)
-
+    config_file = _get_file_path()
     conf_parser = ConfigParser.ConfigParser()
 
     if not os.path.isfile(config_file) or not os.access(config_file, os.R_OK):
@@ -64,32 +60,63 @@ def load_config_file():
     return conf_parser
 
 
-def parse_conf():
-    """
-    Parse configuratiguration file and translate it as structure
+def _parse_conf():
+    """Parse configuratiguration file and translate it as structure
 
     :return: Configuration
     :rtype: dict
     """
-
-    conf_parser = load_config_file()
+    conf_parser = _load_config_file()
 
     for section in conf_parser.sections():
-        config_dict.update({section : {}})
+        _config_dict.update({section : {}})
         for option in conf_parser.options(section):
             value = conf_parser.get(section, option)
-            config_dict[section].update({option : value})
+            _config_dict[section].update({option : value})
 
-    return config_dict
+
 
 def get_section(section):
-    """
-    Get options of specific section
+    """Get options of specific section
 
     :param section string: name of the section
     
     :return: options
     :rtype: dict
     """
-    
-    return config_dict.get(section) 
+    return _config_dict.get(section)
+
+
+def dispatch_list():
+    """Get list of sections where dispatch value is set
+
+    :return: list of sections with dispatch value
+    :rtype: dict
+    """
+    dispatch_dict = {}
+
+    for section in _config_dict:
+        if _config_dict[section].has_key('dispatch'):
+            value = _config_dict[section].get('dispatch')
+            dispatch_dict.update({section : value})
+
+    return dispatch_dict
+
+
+def get_dispatch(dispatch):
+    """Get section info of dispatch
+
+    :param dispatch string: dispatch from which info is useful
+
+    :return: related section with options
+    :rtype: dict
+    """
+    for section in _config_dict:
+        if _config_dict[section].has_key('dispatch'):
+            value = _config_dict[section].get('dispatch')
+            if value == dispatch:
+                return {section: _config_dict[section]}
+
+
+# Automatic load of configuration
+_parse_conf()
