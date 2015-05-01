@@ -58,6 +58,14 @@ import os
 _log = logging.getLogger("dispytch")
 
 
+def configure(config):
+    """Configure module
+
+    :param dict config: Configuration informations
+    """
+    _log.debug("module config: {0}".format(config))
+
+
 def handle_request(*args, **kwargs):
     """Main module entry point
     """
