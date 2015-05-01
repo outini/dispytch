@@ -1,0 +1,10 @@
+dispytch - Modular REST API dispatcher in Python
+================================================
+
+Contact:
+    Denis Pompilio (jawa) <denis.pompilio@gmail.com>
+    Cyrielle Camanes (cycy) <cyrielle.camanes@gmail.com>
+https://github.com/outini/dispytch
+
+=== v0.1.0 01/05/2015 ===
+    * Initial release of dispytch
