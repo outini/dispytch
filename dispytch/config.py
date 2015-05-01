@@ -109,13 +109,15 @@ def get_dispatch(dispatch):
     :param dispatch string: dispatch from which info is useful
 
     :return: related section with options
-    :rtype: dict
+    :rtype: tuple
     """
     for section in _config_dict:
         if _config_dict[section].has_key('dispatch'):
             value = _config_dict[section].get('dispatch')
             if value == dispatch:
-                return {section: _config_dict[section]}
+                return (section, _config_dict[section])
+
+    return (None, {})
 
 
 # Automatic load of configuration
