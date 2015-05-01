@@ -21,6 +21,9 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program; if not, see <http://www.gnu.org/licenses/>.
 
+"""dispytch - Modular REST API dispatcher in Python
+"""
+
 
 import os
 import sys
@@ -91,6 +94,7 @@ def receive_request():
             print("type: documentpath request")
             datas[0].extend(parse_documentpath(req_uri))
 
+    print("datas: {0}".format(datas))
     return datas
 
 
@@ -112,25 +116,13 @@ if __name__ == "__main__":
     print ""
 
     try:
-        print("start")
-        request = receive_request()
-        print("received")
+        (args, kwargs) = receive_request()
+        dispatch(args, kwargs)
     except Exception as e:
-        print(e)
+        import traceback
+        info = sys.exc_info()
+        output_json({'error': info[1].message, })
+        print('\n# '.join(__doc__.split("\n")))
 
-    print("request: {0}".format(request))
-    if len(request):
-        try:
-            dispatch_request(request)
-        except:
-            import traceback
-            info = sys.exc_info()
-            _dump({'error': info[1].message, })
-            print('\n# '.join(__doc__.split("\n")))
-
-            # For debug purposes
-            print ''.join(traceback.format_exception(*info))
-            exit(1)
-    else:
-        print(__doc__)
-        exit(1)
+        # For debug purposes
+        print ''.join(traceback.format_exception(*info))
