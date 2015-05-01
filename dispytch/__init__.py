@@ -30,11 +30,48 @@ CLI Usage:
 
 import os
 import sys
+import logging
+import logging.config
 import json
+
+import config
 
 
 EXIT_USAGE = 2
 EXIT_HANDLE_ERROR = 3
+
+
+# tmp logging config
+config_logging = {
+    'version': 1,
+    'formatters': {
+        'simple': {
+            'format': '%(asctime)s %(name)s [%(levelname)s] %(message)s'
+            },
+        },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'level': 'DEBUG',
+            'formatter': 'simple',
+            'stream': 'ext://sys.stdout',
+            },
+        },
+    'loggers': {
+        'dispytch': {
+            'level': 'DEBUG',
+            'handlers': ['console'],
+            'propagate': 'no',
+            },
+        'root': {
+            'level': 'DEBUG',
+            'handlers': ['console'],
+            },
+        },
+    }
+
+logging.config.dictConfig(config_logging)
+_log = logging.getLogger("dispytch")
 
 
 def output_json(data):
@@ -53,6 +90,7 @@ def parse_documentpath(string):
     :rtype: list
     """
     # document path starts with '/', exclude the first empty element
+    _log.debug("parsing documentpath: {0}".format(string))
     return string.split("/")[1:]
 
 
@@ -63,6 +101,7 @@ def parse_urlencoded(string):
     :return: Named arguments from parsed URL-Encoded string
     :rtype: dict
     """
+    _log.debug("parsing url-encoded: {0}".format(string))
     kwargs = {}
     for field in string.split("&"):
         if "=" in field:
@@ -81,14 +120,14 @@ def receive_request(method):
     """
     datas = ([], {})
 
-    print("method: {0}".format(method))
+    _log.debug("request method: {0}".format(method))
     if method is None:
         # request comes from cli
         pass
 
     elif method == "POST":
         # read url-encoded input from stdin
-        print("type: urlencoded request")
+        _log.debug("request type: url-encoded")
         datas[1].update(parse_urlencoded(sys.stdin.read()))
 
     elif method == "GET":
@@ -96,13 +135,13 @@ def receive_request(method):
         req_uri = os.environ.get('REQUEST_URI', '')
         print("requri: {0}".format(req_uri))
         if "?" in req_uri:
-            print("type: urlencoded request")
+            _log.debug("request type: url-encoded")
             datas[1].update(parse_urlencoded(req_uri.split("?", 1)[-1]))
         else:
-            print("type: documentpath request")
+            _log.debug("request type: documentpath")
             datas[0].extend(parse_documentpath(req_uri))
 
-    print("datas: {0}".format(datas))
+    _log.debug("request datas: {0}".format(datas))
     return datas
 
 
@@ -117,6 +156,7 @@ def dispatch(args, kwargs):
     """
     data = None
     target_module = None
+    module_config = {}
 
     # retrieve the required known module using dispatch info from request
     if len(args):
@@ -124,6 +164,7 @@ def dispatch(args, kwargs):
 
     try:
         module = __import__(target_module)
+        module.configure(module_config)
         data = module.handle_request(*args, **kwargs)
     except TypeError, ValueError:
         raise ImportError("No module found to handle the request")
