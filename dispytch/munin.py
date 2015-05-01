@@ -53,9 +53,15 @@ Exemple:
 
 
 import os
+import logging
 
 
 _log = logging.getLogger("dispytch")
+
+
+CONFIG = None
+DATADIR = None
+RRDEXT = None
 
 
 def configure(config):
