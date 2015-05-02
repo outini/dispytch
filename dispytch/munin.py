@@ -196,16 +196,21 @@ def load_munin_configs():
     """
     configs = {}
 
+    _log.debug("loading munin config")
+    _log.debug("configpath: {0}".format(CONFIG))
+
     if os.path.isdir(CONFIG):
         pollers = os.listdir(CONFIG)
+        _log.debug("listed pollers: {0}".format(pollers))
         for poller in pollers:
-            poller_name = poller.split('-')[0]
             raw_config = []
             for cfg in os.listdir(os.path.join(CONFIG, poller)):
                 cfg = os.path.join(CONFIG, poller, cfg)
                 if cfg.endswith('.conf'):
                     raw_config.extend(open(cfg, 'r').readlines())
-            configs[poller_name] = parse_munin_config(raw_config)
+            configs[poller] = parse_munin_config(raw_config)
+
+    _log.debug("munin config loaded")
 
     return configs
 
