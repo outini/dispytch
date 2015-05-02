@@ -55,6 +55,7 @@ Exemple:
 import os
 import logging
 import rrdtool
+import ConfigParser
 
 
 _log = logging.getLogger("dispytch")
@@ -146,3 +147,35 @@ def get_rrd_metrics(path, cf, start, end, opts=[]):
                   for idx, value in enumerate(rrd_datas[2])
                   if value[0] is not None])
     return serie
+
+
+def parse_munin_config(config_lines):
+    """Parse Munin style configuration lines
+
+    :param list config_lines: Lines read from configuration files
+
+    :return: Configuration object
+    :rtype: ConfigParser.RawConfigParser
+    """
+    config = ConfigParser.RawConfigParser()
+    section = None
+    for line in config_lines:
+        # remove comments from line
+        line = line.split('#', 1)[0]
+        if not len(line.strip()):
+            continue
+        if line.startswith('['):
+            section = line[1:-2]
+            try:
+                config.add_section(section)
+            except ConfigParser.DuplicateSectionError:
+                continue
+            continue
+
+        option = line.strip().split(None, 1)
+        try:
+            config.set(section, option[0], option[1])
+        except IndexError:
+            continue
+
+    return config
