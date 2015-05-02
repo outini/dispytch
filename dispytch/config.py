@@ -81,11 +81,11 @@ def print_section(section):
     :return: section in human readable mode
     :rtype: str
     """
-    conf = "\n# Section : {0}\n#===================\n".format(section)
+    conf = "# Section : {0}\n#===================\n".format(section)
     for opt in _config_dict.get(section):
         conf += "#  - opition {0} : {1}\n".format(opt,_config_dict[section][opt])
 
-    return conf
+    print(conf)
 
 def get_sections():
     """Get list of sections
