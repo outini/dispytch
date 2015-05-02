@@ -54,6 +54,7 @@ Exemple:
 
 import os
 import logging
+import rrdtool
 
 
 _log = logging.getLogger("dispytch")
@@ -81,3 +82,24 @@ def handle_request(*args, **kwargs):
     _log.debug("kwargs: {0}".format(kwargs))
 
     return {}
+
+
+def fetch_rrd(path, cf, start, end, opts=[]):
+    """Fetch informations from rrd file
+
+    :param str path: RRD file path
+    :param str cf: RRD consolidation function to use
+    :param str start: Start time
+    :param str end: End time
+    :param list opts: Additional arguments to pass to rrdtool
+
+    :return: RRD fetched data
+    :rtype: list
+    """
+    args = [path,
+            cf,
+            "-s", '%s' % (start),
+            "-e", '%s' % (end),
+            ]
+    args.extend(opts)
+    return rrdtool.fetch(args)
