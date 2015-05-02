@@ -71,11 +71,14 @@ def selfcheck(config):
 
     :param dict config: Configuration informations
     """
+    assert config.has_key('config')
+    assert config.has_key('datadir')
+    assert config.has_key('rrdext')
     configure(config)
-    assert(CONFIG, config.get('config'))
-    assert(DATADIR, config.get('datadir'))
-    assert(RRDEXT, config.get('rrdext'))
-    assert(True, has_attr(rrdtool, fetch))
+    assert CONFIG == config['config']
+    assert DATADIR == config['datadir']
+    assert RRDEXT == config['rrdext']
+    assert has_attr(rrdtool, fetch)
 
 
 def configure(config):
