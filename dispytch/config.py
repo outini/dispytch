@@ -45,7 +45,7 @@ def _load_config_file():
     :return: ConfigParser
     """
     config_file = _get_file_path()
-    conf_parser = ConfigParser.ConfigParser()
+    conf_parser = ConfigParser.RawConfigParser()
 
     if not os.path.isfile(config_file) or not os.access(config_file, os.R_OK):
         print('File {0} not found or not readable'.format(config_file))
@@ -73,7 +73,6 @@ def _parse_conf():
         for option in conf_parser.options(section):
             value = conf_parser.get(section, option)
             _config_dict[section].update({option : value})
-
 
 
 def get_section(section):
@@ -118,6 +117,65 @@ def get_dispatch(dispatch):
                 return (section, _config_dict[section])
 
     return (None, {})
+
+
+def logging():
+    """Generate logging configuration
+
+    :return: logging configuration to apply
+    :rtype: dict
+    """
+    log = get_section('logging')
+    log_level = log.get('level', 'debug').upper()
+    log_format = log.get('format',
+                     '%(asctime)s %(name)s [%(levelname)s] %(message)s')
+
+    log_conf = {
+        'version': 1,
+        'formatters': {
+            'simple': {
+                'format': log_format 
+            },
+        },
+        'handlers': {
+            'null': {
+                'class': 'logging.NullHandler',
+            },
+        },
+        'loggers': {
+            'dispytch': {
+                'level': log_level,
+                'handlers': ['null'],
+                'propagate': 'no',
+            },
+
+        },
+    }
+
+    if log.get('console') == 'yes':
+        log_conf['handlers'].update({
+            'console': {
+                'class': 'logging.StreamHandler',
+                'level': log_level,
+                'formatter': 'simple',
+                'stream': 'ext://sys.stdout',
+            },
+        })
+        log_conf['loggers']['dispytch']['handlers'].append('console')
+
+    if len(log.get('file', '')):
+        log_conf['handlers'].update({
+            'file': {
+                'class': 'logging.FileHandler',
+                'level': log_level,
+                'formatter': 'simple',
+                'filename': log.get('file'),
+            },
+        })
+        log_conf['loggers']['dispytch']['handlers'].append('file')
+
+
+    return(log_conf)
 
 
 # Automatic load of configuration
