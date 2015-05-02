@@ -118,3 +118,31 @@ def fetch_rrd(path, cf, start, end, opts=[]):
             ]
     args.extend(opts)
     return rrdtool.fetch(args)
+
+
+def get_rrd_metrics(path, cf, start, end, opts=[]):
+    """Get transformed metrics from rrd file
+
+    :param str path: RRD file path
+    :param str cf: RRD consolidation function to use
+    :param str start: Start time
+    :param str end: End time
+    :param list opts: Additional arguments to pass to rrdtool
+
+    :return: Structured RRD fetched data
+    :rtype: dict
+    """
+    rrd_datas = rrdfetch(path, cf, start, end)
+    _log.debug("fetched rrd_datas: {0}".format(rrd_datas))
+
+    starttime = rrd_datas[0][0]
+    step = rrd_datas[0][2]
+    name = rrd_datas[1][0]
+
+    # Munin daemon caches some data and RRD datas is not so fresh
+    # Skip None values (which have not been flushed yet)
+    # Timestamps are returned as ms so with are compliant with HighCharts
+    serie = dict([(starttime + step * idx * 1000, {name: value[0], })
+                  for idx, value in enumerate(rrd_datas[2])
+                  if value[0] is not None])
+    return serie
