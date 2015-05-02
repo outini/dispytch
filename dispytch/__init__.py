@@ -131,10 +131,16 @@ def dispatch(args, kwargs):
     # retrieve the required known module using dispatch info from request
     if len(args):
         dispatch_info = args[0]
+        # dispatch must be unique in configuration
+        # only get the first element
+        (mod_name, mod_config) = config.get_dispatch(dispatch_info)
+
+        _log.debug("dispatch info: {0}".format(dispatch_info))
+        _log.debug("module name: {0}".format(mod_name))
 
     try:
-        module = __import__(target_module)
-        module.configure(module_config)
+        module = __import__(mod_name)
+        module.configure(mod_config)
         data = module.handle_request(*args, **kwargs)
     except TypeError, ValueError:
         raise ImportError("No module found to handle the request")
@@ -165,4 +171,4 @@ if __name__ == "__main__":
         print('# ' + '\n# '.join(__doc__.split("\n")))
 
         # For debug purposes
-        #print ''.join(traceback.format_exception(*info))
+        print ''.join(traceback.format_exception(*info))
