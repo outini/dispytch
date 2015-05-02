@@ -43,6 +43,8 @@ EXIT_HANDLE_ERROR = 3
 logging.config.dictConfig(config.logging())
 _log = logging.getLogger("dispytch")
 
+_INTERNAL_SECTIONS = ('logging',)
+
 
 def output_json(data):
     """Output passed datas as json
@@ -113,6 +115,29 @@ def receive_request(method):
     return datas
 
 
+def info():
+    """Get information from dispytch and configured modules
+
+    """
+    _log.debug('Get information')
+    cur_config = {}
+    # get insternal configuration
+    for section in _INTERNAL_SECTIONS:
+        cur_config.update({ section: config.get_section(section)})
+        config.print_section(section)
+
+    # get moludes configuration
+    for disp in config.dispatch_list().values():
+        (section, mod_config) = config.get_dispatch(disp)
+        cur_config.update({ section: config.get_section(section)})
+        config.print_section(section)
+
+    return cur_config
+
+
+_DISPATCH_INTERNAL = {'info': info, 'selfcheck': None}
+
+
 def dispatch(args, kwargs):
     """Dispatch request args and kwargs to the selected module
 
@@ -123,8 +148,8 @@ def dispatch(args, kwargs):
     :rtype: dict
     """
     data = None
-    target_module = None
-    module_config = {}
+    mod_name = None
+    mod_config = {}
 
     _log.debug("handling new dispatch")
 
@@ -133,6 +158,11 @@ def dispatch(args, kwargs):
         dispatch_info = args[0]
         # dispatch must be unique in configuration
         # only get the first element
+        if dispatch_info in _DISPATCH_INTERNAL:
+            _log.debug("internal dipatch name: {0}".format(dispatch_info))
+            data =_DISPATCH_INTERNAL[dispatch_info]()
+            return {'result': data}
+
         (mod_name, mod_config) = config.get_dispatch(dispatch_info)
 
         _log.debug("dispatch info: {0}".format(dispatch_info))
