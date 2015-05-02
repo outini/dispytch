@@ -179,3 +179,28 @@ def parse_munin_config(config_lines):
             continue
 
     return config
+
+
+def load_munin_configs():
+    """Load munin configuration files from path
+
+    :param str path: Configuration path
+
+    :return: Configuration structure
+    :rtype: dict
+    """
+    configs = {}
+
+    if os.path.isdir(CONFIG):
+        pollers = os.listdir(CONFIG)
+        for poller in pollers:
+            poller_name = poller.split('-')[0]
+            raw_config = []
+            for cfg in os.listdir(os.path.join(CONFIG, poller)):
+                cfg = os.path.join(CONFIG, poller, cfg)
+                if cfg.endswith('.conf'):
+                    raw_config.extend(open(cfg, 'r').readlines())
+            configs[poller_name] = parse_munin_config(raw_config)
+
+    return configs
+
