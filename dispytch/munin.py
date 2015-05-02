@@ -102,7 +102,24 @@ def handle_request(*args, **kwargs):
     _log.debug("args: {0}".format(args))
     _log.debug("kwargs: {0}".format(kwargs))
 
-    return {}
+    # Converting positionnal args to kwargs
+    # First positionnal arg is always dispatch, skipping it
+    args = list(args)
+    args.pop(0)
+    fields = ["method", "target", "datatype", "cf", "start", "stop", "tmpl"]
+    positionnal_args = dict(zip(fields[:len(args)], args))
+
+    # arguments agreggation
+    arguments = kwargs
+    arguments.update(positionnal_args)
+
+    _log.debug("arguments: {0}".format(arguments))
+
+    # Unknown method will raise exception handled by dispatcher
+    try:
+        return KNOWN_METHODS[arguments['method']](arguments)
+    except Exception as e:
+        print(e.__repr__())
 
 
 def fetch_rrd(path, cf, start, end, opts=[]):
@@ -213,4 +230,28 @@ def load_munin_configs():
     _log.debug("munin config loaded")
 
     return configs
+
+
+def handle_request_list(arguments):
+    """Handle "list" request
+
+    :param dict arguments: Dictionnary of arguments
+
+    :return: Dictionnary of available data
+    :rtype: dict
+    """
+    munin_config = load_munin_configs()
+    info = {}
+    for poller, config in munin_config.items():
+        pinfo = {}
+        for section in config.sections():
+            pinfo[section] = dict(config.items(section))
+        info[poller] = pinfo
+    return info
+
+
+# Reference known methods to handle
+KNOWN_METHODS = {
+    'list': handle_request_list,
+    }
 
