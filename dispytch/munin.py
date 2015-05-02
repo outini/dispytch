@@ -65,6 +65,18 @@ DATADIR = None
 RRDEXT = None
 
 
+def selfcheck(config):
+    """Selfcheck module functionnalities
+
+    :param dict config: Configuration informations
+    """
+    configure(config)
+    assert(CONFIG, config.get('config'))
+    assert(DATADIR, config.get('datadir'))
+    assert(RRDEXT, config.get('rrdext'))
+    assert(True, has_attr(rrdtool, fetch))
+
+
 def configure(config):
     """Configure module
 
