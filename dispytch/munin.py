@@ -87,9 +87,11 @@ def configure(config):
     :param dict config: Configuration informations
     """
     _log.debug("module config: {0}".format(config))
-    CONFIG = config.get('config')
-    DATADIR = config.get('datadir')
-    RRDEXT = config.get('rrdext')
+    globals().update({
+        'CONFIG': config.get('config'),
+        'DATADIR': config.get('datadir'),
+        'RRDEXT': config.get('rrdext'),
+        })
 
 
 def handle_request(*args, **kwargs):
