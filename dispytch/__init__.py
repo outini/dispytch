@@ -40,37 +40,7 @@ import config
 EXIT_USAGE = 2
 EXIT_HANDLE_ERROR = 3
 
-
-# tmp logging config
-config_logging = {
-    'version': 1,
-    'formatters': {
-        'simple': {
-            'format': '%(asctime)s %(name)s [%(levelname)s] %(message)s'
-            },
-        },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'level': 'DEBUG',
-            'formatter': 'simple',
-            'stream': 'ext://sys.stdout',
-            },
-        },
-    'loggers': {
-        'dispytch': {
-            'level': 'DEBUG',
-            'handlers': ['console'],
-            'propagate': 'no',
-            },
-        'root': {
-            'level': 'DEBUG',
-            'handlers': ['console'],
-            },
-        },
-    }
-
-logging.config.dictConfig(config_logging)
+logging.config.dictConfig(config.logging())
 _log = logging.getLogger("dispytch")
 
 
@@ -131,9 +101,7 @@ def receive_request(method):
         datas[1].update(parse_urlencoded(sys.stdin.read()))
 
     elif method == "GET":
-        # retreive REQUEST_URI from call, or environment instead
         req_uri = os.environ.get('REQUEST_URI', '')
-        print("requri: {0}".format(req_uri))
         if "?" in req_uri:
             _log.debug("request type: url-encoded")
             datas[1].update(parse_urlencoded(req_uri.split("?", 1)[-1]))
@@ -157,6 +125,8 @@ def dispatch(args, kwargs):
     data = None
     target_module = None
     module_config = {}
+
+    _log.debug("handling new dispatch")
 
     # retrieve the required known module using dispatch info from request
     if len(args):
