@@ -74,18 +74,18 @@ def _parse_conf():
             value = conf_parser.get(section, option)
             _config_dict[section].update({option : value})
 
+
 def print_section(section):
     """Print section as comment to be human readable
 
     :param section str: selected section
-    :return: section in human readable mode
-    :rtype: str
     """
-    conf = "# Section : {0}\n#===================\n".format(section)
-    for opt in _config_dict.get(section):
-        conf += "#  - opition {0} : {1}\n".format(opt,_config_dict[section][opt])
+    print("# Section: {0}".format(section))
+    print("#=========={0}".format("="*len(section)))
+    for opt, value in _config_dict.get(section).items():
+        print("#  - {0}: {1}".format(opt, value))
+    print("#")
 
-    print(conf)
 
 def get_sections():
     """Get list of sections
