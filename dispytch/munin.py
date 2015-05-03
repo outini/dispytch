@@ -103,6 +103,12 @@ def configure(config):
         'DATADIR': config.get('datadir'),
         'RRDEXT': config.get('rrdext'),
         })
+    try:
+        assert CONFIG is not None
+        assert DATADIR is not None
+        assert RRDEXT is not None
+    except AssertionError:
+        raise RuntimeError("unconfigured module")
 
 
 def handle_request(*args, **kwargs):
