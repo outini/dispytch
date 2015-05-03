@@ -132,7 +132,22 @@ def info():
     return cur_config
 
 
-_DISPATCH_INTERNAL = {'info': info, 'selfcheck': None}
+_DISPATCH_INTERNAL = {'/info': info}
+
+
+def select_dispatch(docpath, dispatches):
+    """Select matching dispatch from dispatches infos
+
+    :param str docpath: Requested path
+    :param dict dispatches: Dictionnary of dispatches and associated modules
+
+    :return: Matched dispatch target or None
+    """
+    # dispatches are sorted, so the most precise dispatch is selected
+    for entry in sorted(dispatches, reverse=True):
+        if docpath.startswith(entry):
+            _log.debug("selected dispatch: {0}".format(entry))
+            return dispatches[entry]
 
 
 def dispatch(args, kwargs):
