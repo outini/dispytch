@@ -182,10 +182,62 @@ def get_rrd_metrics(path, cf, start, end, opts=[]):
     # Munin daemon caches some data and RRD datas is not so fresh
     # Skip None values (which have not been flushed yet)
     # Timestamps are returned as ms so with are compliant with HighCharts
+    # returned series must be of the form:
+    #   [[time, val], [time, val], [time, val], ...]
+
     serie = dict([(starttime + step * idx * 1000, {name: value[0], })
                   for idx, value in enumerate(rrd_datas[2])
                   if value[0] is not None])
     return serie
+
+
+def get_rrd_metrics_by_entry(poller, entry, datatype, cf, start, end, opts=[]):
+    """Get transformed RRD metrics from munin entry
+
+    :param str poller: Munin poller
+    :param str entry: Munin configuration entry
+    :param str cf: RRD consolidation function to use
+    :param str start: Start time
+    :param str end: End time
+    :param list opts: Additional arguments to pass to rrdtool
+
+    :return: Structured RRD fetched data
+    :rtype: dict
+    """
+    # munin RRD files comonly are: <host>-<datatype>-<datasubtype>-<X>.rrd
+    # where <host> can contain dashes (-)
+    rrdhostpath = "/".join(entry.split(';')[:-1])
+    rrdhost = entry.split(';')[-1]
+    rrdstore = os.path.join(DATADIR, poller, rrdhostpath)
+
+    _log.debug("rrdstore:".format(rrdstore))
+
+    rrd_candidates = []
+    match = "%s-%s" % (rrdhost, datatype)
+    for rrdfile in os.listdir(rrdstore):
+        if rrdfile[:len(match) + 1] == "%s-" % (match) \
+            and '-' not in rrdfile[len(match) + 1: -6]:
+            rrd_candidates.append(os.path.join(rrdstore, rrdfile))
+
+    _log.debug("selected rrds: {0}".format(rrd_candidates))
+
+    # returned series must be under the form:
+    #   series = [{'name': "serieA",
+    #              'data': [[time, val], [time, val], [time, val], ...]},
+    #             {'name': "serieB",
+    #              'data': [[time, val], [time, val], [time, val], ...]},
+    rrddata = []
+    for rrdfile in rrd_candidates:
+        # Munin only store one field named "42"
+        field = rrdfile.split('-')[-2]
+        serie = {'name': field, 'data': []}
+
+        for entry, data in get_rrd_metrics(rrdfile, cf, start, end).items():
+            serie['data'].append([entry, data.values()[0]])
+
+        rrddata.append(serie)
+
+    return rrddata
 
 
 def parse_munin_config(config_lines):
