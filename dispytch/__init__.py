@@ -172,7 +172,7 @@ def dispatch(args, kwargs):
         return {'result': dispatch_target()}
 
     module_name = select_dispatch(docpath, config.dispatch_list())
-    #module_config = config.get_section(module_name)
+    module_config = config.get_section(module_name)
     _log.debug("module name: {0}".format(module_name))
     _log.debug("module config: {0}".format(module_config))
 
