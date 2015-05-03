@@ -160,29 +160,25 @@ def dispatch(args, kwargs):
     :rtype: dict
     """
     data = None
-    mod_name = None
-    mod_config = {}
+    module_name = None
+    module_config = {}
 
-    _log.debug("handling new dispatch")
+    # retrieve the required known module using dispatch info from document path
+    docpath = os.environ.get('DOCUMENT_PATH', '')
+    _log.info("handling new dispatch: {0}".format(docpath))
 
-    # retrieve the required known module using dispatch info from request
-    if len(args):
-        dispatch_info = args[0]
-        # dispatch must be unique in configuration
-        # only get the first element
-        if dispatch_info in _DISPATCH_INTERNAL:
-            _log.debug("internal dipatch name: {0}".format(dispatch_info))
-            data =_DISPATCH_INTERNAL[dispatch_info]()
-            return {'result': data}
+    dispatch_target = select_dispatch(docpath, _DISPATCH_INTERNAL)
+    if dispatch_target is not None:
+        return {'result': dispatch_target()}
 
-        (mod_name, mod_config) = config.get_dispatch(dispatch_info)
-
-        _log.debug("dispatch info: {0}".format(dispatch_info))
-        _log.debug("module name: {0}".format(mod_name))
+    module_name = select_dispatch(docpath, config.dispatch_list())
+    #module_config = config.get_section(module_name)
+    _log.debug("module name: {0}".format(module_name))
+    _log.debug("module config: {0}".format(module_config))
 
     try:
-        module = __import__(mod_name)
-        module.configure(mod_config)
+        module = __import__(module_name)
+        module.configure(module_config)
         data = module.handle_request(*args, **kwargs)
     except TypeError, ValueError:
         raise ImportError("No module found to handle the request")
