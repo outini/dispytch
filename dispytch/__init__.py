@@ -124,7 +124,7 @@ def info():
         config.print_section(section)
 
     # get moludes configuration
-    for disp in config.dispatch_list().values():
+    for disp in config.dispatch_list():
         (section, mod_config) = config.get_dispatch(disp)
         cur_config.update({ section: config.get_section(section)})
         config.print_section(section)
