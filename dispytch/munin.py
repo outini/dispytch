@@ -172,7 +172,7 @@ def get_rrd_metrics(path, cf, start, end, opts=[]):
     :return: Structured RRD fetched data
     :rtype: dict
     """
-    rrd_datas = rrdfetch(path, cf, start, end)
+    rrd_datas = fetch_rrd(path, cf, start, end)
     _log.debug("fetched rrd_datas: {0}".format(rrd_datas))
 
     starttime = rrd_datas[0][0]
