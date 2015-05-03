@@ -349,9 +349,42 @@ def handle_request_byid(kwargs):
                                     kwargs.get('start'), kwargs.get('stop'))
 
 
+def handle_request_byip(arguments):
+    """Handle "by-ip" request
+
+    :param dict arguments: Dictionnary of arguments
+
+    :return: Dictionnary of fetched data
+    :rtype: dict
+    """
+    # Find id with specified ip from configuration
+    ipaddr = arguments.get('target')
+    if ipaddr is None:
+        raise ValueError('invalid request')
+
+    munin_entry = None
+    munin_poller = None
+    munin_config = load_munin_configs()
+    for poller, config in munin_config.items():
+        for section in config.sections():
+            if ('address', ip) in config.items(section):
+                munin_poller = poller
+                munin_entry = section
+                break
+
+    _log.debug("selected munin poller: {0}".format(munin_poller))
+    _log.debug("selected munin entry: {0}".format(munin_entry))
+
+    if munin_entry is None or munin_poller is None:
+        raise ValueError('target not found')
+
+    return {}
+
+
 # Reference known methods to handle
 KNOWN_METHODS = {
     'list': handle_request_list,
     'by-id': handle_request_byid,
+    'by-ip': handle_request_byip,
     }
 
