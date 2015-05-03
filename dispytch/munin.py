@@ -318,9 +318,40 @@ def handle_request_list(arguments):
         info[poller] = pinfo
     return info
 
+def handle_request_byid(kwargs):
+    """Handle "by-id" request
+
+    :param dict args: Dictionnary of arguments
+
+    :return: Dictionnary of fetched data
+    :rtype: dict
+    """
+    # Find specified id from configuration
+    munin_entry = kwargs.get('target')
+    if munin_entry is None:
+        raise ValueError('invalid request')
+
+    munin_poller = None
+    munin_config = load_munin_configs()
+    for poller, config in munin_config.items():
+        if munin_entry in config.sections():
+            munin_poller = poller
+            break
+
+    _log.debug("selected munin poller: {0}".format(munin_poller))
+    _log.debug("selected munin entry: {0}".format(munin_entry))
+
+    if munin_poller is None:
+        raise ValueError('target not found')
+
+    return get_rrd_metrics_by_entry(munin_poller, munin_entry,
+                                    kwargs.get('datatype'), kwargs.get('cf'),
+                                    kwargs.get('start'), kwargs.get('stop'))
+
 
 # Reference known methods to handle
 KNOWN_METHODS = {
     'list': handle_request_list,
+    'by-id': handle_request_byid,
     }
 
