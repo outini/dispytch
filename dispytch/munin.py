@@ -71,14 +71,25 @@ def selfcheck(config):
 
     :param dict config: Configuration informations
     """
-    assert config.has_key('config')
-    assert config.has_key('datadir')
-    assert config.has_key('rrdext')
-    configure(config)
-    assert CONFIG == config['config']
-    assert DATADIR == config['datadir']
-    assert RRDEXT == config['rrdext']
-    assert has_attr(rrdtool, fetch)
+    try:
+        assert config.has_key('config')
+        assert config.has_key('datadir')
+        assert config.has_key('rrdext')
+    except AssertionError:
+        raise RuntimeError("invalid module configuration")
+
+    try:
+        configure(config)
+        assert CONFIG == config['config']
+        assert DATADIR == config['datadir']
+        assert RRDEXT == config['rrdext']
+    except AssertionError:
+        raise RuntimeError("unable to configure module")
+
+    try:
+        assert has_attr(rrdtool, fetch)
+    except AssertionError:
+        raise RuntimeError("missing dependency")
 
 
 def configure(config):
