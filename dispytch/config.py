@@ -95,6 +95,7 @@ def get_sections():
     """
     return _config_dict.keys()
 
+
 def get_section(section):
     """Get options of specific section
 
@@ -109,15 +110,14 @@ def get_section(section):
 def dispatch_list():
     """Get list of sections where dispatch value is set
 
-    :return: list of sections with dispatch value
+    :return: list of sections with dispatch
     :rtype: dict
     """
     dispatch_dict = {}
 
-    for section in _config_dict:
-        if _config_dict[section].has_key('dispatch'):
-            value = _config_dict[section].get('dispatch')
-            dispatch_dict.update({section : value})
+    for section, opts in _config_dict.items():
+        if 'dispatch' in opts:
+            dispatch_dict.update({opts['dispatch']: section})
 
     return dispatch_dict
 
@@ -193,7 +193,6 @@ def logging():
             },
         })
         log_conf['loggers']['dispytch']['handlers'].append('file')
-
 
     return(log_conf)
 
