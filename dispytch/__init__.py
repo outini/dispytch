@@ -93,14 +93,11 @@ def receive_request(method):
     datas = ([], {})
 
     _log.debug("request method: {0}".format(method))
-    if method is None:
-        # request comes from cli
-        pass
-
-    elif method == "POST":
+    if method == "POST":
         # read url-encoded input from stdin
         _log.debug("request type: url-encoded")
-        datas[1].update(parse_urlencoded(sys.stdin.read()))
+        request = sys.stdin.read()
+        datas[1].update(parse_urlencoded(request))
 
     elif method == "GET":
         req_uri = os.environ.get('REQUEST_URI', '')
@@ -197,6 +194,7 @@ if __name__ == "__main__":
     except Exception:
         import traceback
         info = sys.exc_info()
+        _log.error(info[1].message)
         output_json({'error': info[1].message, })
         print('# ' + '\n# '.join(__doc__.split("\n")))
 
