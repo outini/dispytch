@@ -153,34 +153,29 @@ def logging():
     log_conf = {
         'version': 1,
         'formatters': {
-            'simple': {
-                'format': log_format 
+            'brief': {
+                'format': '[%(levelname)s] [%(filename)s:%(funcName)s] %(message)s'},
+            'general': {'format': log_format},
             },
-        },
-        'handlers': {
-            'null': {
-                'class': 'logging.NullHandler',
-            },
-        },
+        'handlers': {'null': {'class': 'logging.NullHandler'}},
         'loggers': {
             'dispytch': {
                 'level': log_level,
                 'handlers': ['null'],
                 'propagate': 'no',
+                },
             },
-
-        },
-    }
+        }
 
     if log.get('console') == 'yes':
         log_conf['handlers'].update({
             'console': {
                 'class': 'logging.StreamHandler',
                 'level': log_level,
-                'formatter': 'simple',
+                'formatter': 'brief',
                 'stream': 'ext://sys.stdout',
-            },
-        })
+                },
+            })
         log_conf['loggers']['dispytch']['handlers'].append('console')
 
     if len(log.get('file', '')):
@@ -188,7 +183,7 @@ def logging():
             'file': {
                 'class': 'logging.FileHandler',
                 'level': log_level,
-                'formatter': 'simple',
+                'formatter': 'general',
                 'filename': log.get('file'),
             },
         })
