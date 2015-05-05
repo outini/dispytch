@@ -1,0 +1,81 @@
+#! /usr/bin/env python
+
+#
+#    Modular REST API dispatcher in Python (dispytch)
+#
+#    Copyright (C) 2015 Denis Pompilio (jawa) <denis.pompilio@gmail.com>
+#    Copyright (C) 2015 Cyrielle Camanes (cycy) <cyrielle.camanes@gmail.com>
+#
+#    This file is part of dispytch
+#
+#    This program is free software; you can redistribute it and/or
+#    modify it under the terms of the GNU General Public License
+#    as published by the Free Software Foundation; either version 2
+#    of the License, or (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program; if not, see <http://www.gnu.org/licenses/>.
+
+"""dispytch - Modular REST API dispatcher in Python
+
+Usage:
+    dispytch get <request_uri> [-o <json_file>]
+    dispytch post <document_path> [-o <json_file>]
+    dispytch shell
+    dispytch --rest
+
+Options:
+    -h, --help      Display usage
+    -o <json_file>  Dump output to json file
+    --rest          Process requests for webservice
+    get             Process GET request
+    post            Process POST request
+    shell           Spawn an interactive shell for requests (not implemented)
+"""
+
+
+import docopt
+import json
+
+import dispytch
+
+
+def dump_json(data, filename=None):
+    """Dump data as json
+
+    If no filename is provided, data is dump to stdout
+
+    :param str filename: Name of the file to write
+    :param dict data: Data to convert as json
+    """
+    if filename is not None:
+        with open(filename, "w") as jsonfd:
+            jsonfd.write(json.dump(data))
+            jsonfd.close()
+    else:
+        print(json.dump(data, indent=2))
+
+
+if __name__ == "__main__":
+    args = docopt.docopt(__doc__)
+
+    if args["--rest"] is True:
+        return dispytch.webservice()
+
+    if args['shell'] is True:
+        print("This feature is still not implemented")
+        exit(1)
+
+    method = 'GET'
+    if args["post"] is True:
+        method = 'POST'
+
+    (args, kwargs) = dispytch.receive_request(method)
+    data = dispytch.dispatch(args, kwargs)
+    dump_json(data, args.get('json_file')
+
