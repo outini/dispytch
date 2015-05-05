@@ -175,20 +175,26 @@ def get_rrd_metrics(path, cf, start, end, opts=[]):
     rrd_datas = fetch_rrd(path, cf, start, end)
     _log.debug("fetched rrd_datas: {0}".format(rrd_datas))
 
-    starttime = rrd_datas[0][0]
-    step = rrd_datas[0][2]
-    name = rrd_datas[1][0]
+    (starttime, stoptime, step) = rrd_datas[0]
+    names = rrd_datas[1]
+    values = rrd_datas[2]
 
     # Munin daemon caches some data and RRD datas is not so fresh
     # Skip None values (which have not been flushed yet)
     # Timestamps are returned as ms so with are compliant with HighCharts
     # returned series must be of the form:
     #   [[time, val], [time, val], [time, val], ...]
+    series = []
+    for name in names:
+        series.append({'name': name, 'data': []})
 
-    serie = dict([(starttime + step * idx * 1000, {name: value[0], })
-                  for idx, value in enumerate(rrd_datas[2])
-                  if value[0] is not None])
-    return serie
+    for vidx, vals in enumerate(values):
+        for idx, val in enumerate(vals):
+            if val is not None:
+                series[idx]['data'].append(
+                        [(starttime + step * vidx) * 1000, val])
+
+    return series
 
 
 def get_rrd_metrics_by_entry(poller, entry, datatype, cf, start, end, opts=[]):
