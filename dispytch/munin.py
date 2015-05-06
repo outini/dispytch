@@ -54,12 +54,13 @@ Exemple:
 
 import os
 import logging
-import rrdtool
+import re
 import ConfigParser
+
+import rrdtool
 
 
 _log = logging.getLogger("dispytch")
-
 
 CONFIG = None
 DATADIR = None
@@ -173,7 +174,7 @@ def get_rrd_metrics(path, cf, start, end, opts=[]):
     :rtype: dict
     """
     rrd_datas = fetch_rrd(path, cf, start, end)
-    _log.debug("fetched rrd_datas: {0}".format(rrd_datas))
+    _log.debug("fetched RRD data: {0}".format(rrd_datas))
 
     (starttime, stoptime, step) = rrd_datas[0]
     names = rrd_datas[1]
@@ -194,10 +195,11 @@ def get_rrd_metrics(path, cf, start, end, opts=[]):
                 series[idx]['data'].append(
                         [(starttime + step * vidx) * 1000, val])
 
+    _log.debug("structured RRD data: {0}".format(series))
     return series
 
 
-def get_rrd_metrics_by_entry(poller, entry, datatype, cf, start, end, opts=[]):
+def get_munin_entry_metrics(poller, entry, datatype, cf, start, end, opts=[]):
     """Get transformed RRD metrics from munin entry
 
     :param str poller: Munin poller
@@ -212,18 +214,26 @@ def get_rrd_metrics_by_entry(poller, entry, datatype, cf, start, end, opts=[]):
     """
     # munin RRD files comonly are: <host>-<datatype>-<datasubtype>-<X>.rrd
     # where <host> can contain dashes (-)
-    rrdhostpath = "/".join(entry.split(';')[:-1])
-    rrdhost = entry.split(';')[-1]
-    rrdstore = os.path.join(DATADIR, poller, rrdhostpath)
+    # and <datasubtype> cannot contain dashes (-)
+    # selection is made against: <host>-<datatype>-[^-]+-x.rrd
+    rrdsuffix = "-x.{0}".format(RRDEXT)
+    rrdpath = "/".join(entry.split(';')[:-1])
+    host = entry.split(';')[-1]
+    rrdstore = os.path.join(DATADIR, poller, rrdpath)
 
-    _log.debug("rrdstore:".format(rrdstore))
+    subtype_pattern = r"{0}-{1}-([^-]+)-.\.{2}".format(host, datatype, RRDEXT)
+    subtype_re = re.compile(subtype_pattern)
 
-    rrd_candidates = []
-    match = "%s-%s" % (rrdhost, datatype)
+    _log.debug("rrdstore: ".format(rrdstore))
+
+    rrd_candidates = {}
     for rrdfile in os.listdir(rrdstore):
-        if rrdfile[:len(match) + 1] == "%s-" % (match) \
-            and '-' not in rrdfile[len(match) + 1: -6]:
-            rrd_candidates.append(os.path.join(rrdstore, rrdfile))
+        subtype = subtype_re.match(rrdfile)
+        if subtype is not None:
+            subtype_name = subtype.groups()[0]
+            rrd_candidates.update({
+                subtype_name: os.path.join(rrdstore, rrdfile)
+                })
 
     _log.debug("selected rrds: {0}".format(rrd_candidates))
 
@@ -232,18 +242,22 @@ def get_rrd_metrics_by_entry(poller, entry, datatype, cf, start, end, opts=[]):
     #              'data': [[time, val], [time, val], [time, val], ...]},
     #             {'name': "serieB",
     #              'data': [[time, val], [time, val], [time, val], ...]},
-    rrddata = []
-    for rrdfile in rrd_candidates:
-        # Munin only store one field named "42"
-        field = rrdfile.split('-')[-2]
-        serie = {'name': field, 'data': []}
+    # get_rrd_metrics already returned this format
+    # however, munin does not use rrd field name and set it to '42'
+    # we replace this fake field name with extracted subtype from file name
+    # munin's rrd contains only one field, so we aggregate multiple RRD data
+    series = []
+    for subtype, rrdfile in rrd_candidates.items():
+        rrd_metrics = get_rrd_metrics(rrdfile, cf, start, end)
 
-        for entry, data in get_rrd_metrics(rrdfile, cf, start, end).items():
-            serie['data'].append([entry, data.values()[0]])
+        # munin rrd only contains one field named "42", check it, or skip
+        if len(rrd_metrics) > 1 or rrd_metrics[0]['name'] != "42":
+            continue
 
-        rrddata.append(serie)
+        serie = {'name': subtype, 'data': rrd_metrics[0]['data']}
+        series.append(serie)
 
-    return rrddata
+    return series
 
 
 def parse_munin_config(config_lines):
@@ -350,9 +364,9 @@ def handle_request_byid(kwargs):
     if munin_poller is None:
         raise ValueError('target not found')
 
-    return get_rrd_metrics_by_entry(munin_poller, munin_entry,
-                                    kwargs.get('datatype'), kwargs.get('cf'),
-                                    kwargs.get('start'), kwargs.get('stop'))
+    return get_munin_entry_metrics(munin_poller, munin_entry,
+                                   kwargs.get('datatype'), kwargs.get('cf'),
+                                   kwargs.get('start'), kwargs.get('stop'))
 
 
 def handle_request_byip(arguments):
