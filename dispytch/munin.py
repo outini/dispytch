@@ -315,6 +315,34 @@ def parse_munin_datafile_line(line):
     return {entry: {key: {option: value}}}
 
 
+def load_munin_datafile(datafile_path, filter_str=None):
+    """Load munin datafile containing graphs infos
+
+    :param str datafile_path: Munin datafile path
+    :param str filter_str: Filter string to use on data load
+
+    :return: Datafile selected content
+    :rtype: dict
+    """
+    # munin datafile describe how graphs should be draw
+    # lines may be one of the following:
+    #   "munin;entry:datatype.key value with spaces"
+    #   "munin;entry:datatype.serie.key value with spaces"
+    data = {}
+    with open(datafile_path, "r") as dfile:
+        for line in dfile.readlines():
+            # Check if line match the provided filter string
+            # Example of filter string:
+            #   my;munin;entry:cpu
+            if filter_str is not None and not line.startswith(filter_str):
+                continue
+
+            infos = parse_munin_datafile_line(line.strip())
+            utils.merge_dict(data, infos)
+
+    return data
+
+
 def load_munin_configs():
     """Load munin configuration files from path
 
