@@ -59,6 +59,8 @@ import ConfigParser
 
 import rrdtool
 
+import utils
+
 
 _log = logging.getLogger("dispytch")
 
@@ -290,6 +292,27 @@ def parse_munin_config(config_lines):
             continue
 
     return config
+
+
+def parse_munin_datafile_line(line):
+    """Parse munin datafile line
+
+    :param str line: Munin datafile line
+
+    :return: Informations from line
+    :rtype: dict
+    """
+    (entry, infos_str) = line.strip().split(":", 1)
+    (tree, value) = infos_str.split(' ', 1)
+    infos = tree.split('.', 2)
+    option = infos.pop(-1)
+    key = infos.pop(0)
+
+    if len(infos):
+        subkey = infos.pop(0)
+        return {entry: {key: {subkey: {option: value}}}}
+
+    return {entry: {key: {option: value}}}
 
 
 def load_munin_configs():
