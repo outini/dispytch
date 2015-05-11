@@ -22,9 +22,6 @@
 #    along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 """dispytch - Modular REST API dispatcher in Python
-
-CLI Usage:
-    dispytch <request_uri>
 """
 
 
@@ -32,9 +29,9 @@ import os
 import sys
 import logging
 import logging.config
-import json
+import importlib
 
-import config
+from . import config
 
 
 EXIT_USAGE = 2
@@ -44,14 +41,6 @@ logging.config.dictConfig(config.logging())
 _log = logging.getLogger("dispytch")
 
 _INTERNAL_SECTIONS = ('logging',)
-
-
-def output_json(data):
-    """Output passed datas as json
-
-    :param dict data: Data to output as json
-    """
-    print(json.dumps(data, indent=2))
 
 
 def parse_documentpath(string):
@@ -82,10 +71,11 @@ def parse_urlencoded(string):
     return kwargs
 
 
-def receive_request(method):
+def receive_request(method, request_uri=None):
     """Receive request for the specified method
 
     :param str method: Method used for the request, may be GET or POST
+    :param str request_uri: Request URI while using method GET
 
     :return: Parsed positionnal and named arguments as :func:`tuple`
     :rtype: tuple
@@ -100,13 +90,14 @@ def receive_request(method):
         datas[1].update(parse_urlencoded(request))
 
     elif method == "GET":
-        req_uri = os.environ.get('REQUEST_URI', '')
-        if "?" in req_uri:
+        if request_uri is None:
+            raise TypeError("Missing request URI while using GET method")
+        if "?" in request_uri:
             _log.debug("request type: url-encoded")
-            datas[1].update(parse_urlencoded(req_uri.split("?", 1)[-1]))
+            datas[1].update(parse_urlencoded(request_uri.split("?", 1)[-1]))
         else:
             _log.debug("request type: documentpath")
-            datas[0].extend(parse_documentpath(req_uri))
+            datas[0].extend(parse_documentpath(request_uri))
 
     _log.debug("request datas: {0}".format(datas))
     return datas
@@ -150,9 +141,10 @@ def select_dispatch(docpath, dispatches):
             return dispatches[entry]
 
 
-def dispatch(args, kwargs):
+def dispatch(docpath, args, kwargs):
     """Dispatch request args and kwargs to the selected module
 
+    :param str docpath: Document path called
     :param list args: Positionnal args to pass to the module
     :param dict kwargs: Named args to pass to the module
 
@@ -164,7 +156,6 @@ def dispatch(args, kwargs):
     module_config = {}
 
     # retrieve the required known module using dispatch info from document path
-    docpath = os.environ.get('DOCUMENT_PATH', '')
     _log.info("handling new dispatch: {0}".format(docpath))
 
     dispatch_target = select_dispatch(docpath, _DISPATCH_INTERNAL)
@@ -177,37 +168,11 @@ def dispatch(args, kwargs):
     _log.debug("module config: {0}".format(module_config))
 
     try:
-        module = __import__(module_name)
+        module_fullname = ".modules.{0}".format(module_name)
+        module = importlib.import_module(module_fullname, "dispytch")
         module.configure(module_config)
         data = module.handle_request(*args, **kwargs)
     except TypeError, ValueError:
         raise ImportError("No module found to handle the request")
 
     return {'result': data}
-
-
-if __name__ == "__main__":
-    # Test request method to handle commandline
-    method = os.environ.get('REQUEST_METHOD')
-
-    if method is None:
-        if len(sys.argv) == 2:
-            os.environ['REQUEST_URI'] = sys.argv[1]
-        else:
-            print(__doc__)
-            exit(EXIT_USAGE)
-
-    try:
-        print "Content-type: text/plain"
-        print ""
-        (args, kwargs) = receive_request(method)
-        output_json(dispatch(args, kwargs))
-    except Exception:
-        import traceback
-        info = sys.exc_info()
-        _log.error(info[1].message)
-        output_json({'error': info[1].message, })
-        print('# ' + '\n# '.join(__doc__.split("\n")))
-
-        # For debug purposes
-        print ''.join(traceback.format_exception(*info))

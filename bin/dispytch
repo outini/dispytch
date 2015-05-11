@@ -28,6 +28,7 @@ Usage:
     dispytch post <document_path> [-o <json_file>]
     dispytch shell
     dispytch --rest
+    dispytch (-h|--help)
 
 Options:
     -h, --help      Display usage
@@ -39,6 +40,7 @@ Options:
 """
 
 
+import os
 import docopt
 import json
 
@@ -58,24 +60,48 @@ def dump_json(data, filename=None):
             jsonfd.write(json.dump(data))
             jsonfd.close()
     else:
-        print(json.dump(data, indent=2))
+        print(json.dumps(data, indent=2))
+
+
+def show_http_header():
+    """Display HTTP plain/text header
+    """
+    print("Content-type: text/plain\n")
 
 
 if __name__ == "__main__":
-    args = docopt.docopt(__doc__)
+    doc_args = docopt.docopt(__doc__)
 
-    if args["--rest"] is True:
-        return dispytch.webservice()
+    if doc_args["--rest"] is True:
+        method = os.environ.get('REQUEST_METHOD', 'GET').lower()
+        doc_args[method] = True
+        doc_args['<request_uri>'] = os.environ.get('REQUEST_URI')
+        doc_args['<document_path>'] = os.environ.get('DOCUMENT_PATH')
+        show_http_header()
 
-    if args['shell'] is True:
+    if doc_args['shell'] is True:
         print("This feature is still not implemented")
         exit(1)
 
-    method = 'GET'
-    if args["post"] is True:
+    if doc_args["get"] is True:
+        method = 'GET'
+        uri = doc_args.get('<request_uri>', '')
+    elif doc_args["post"] is True:
         method = 'POST'
+        uri = doc_args.get('<document_path>', '')
+    else:
+        dump_json({'error': 'unknown method'})
+        exit(1)
 
-    (args, kwargs) = dispytch.receive_request(method)
-    data = dispytch.dispatch(args, kwargs)
-    dump_json(data, args.get('json_file')
+    try:
+        (args, kwargs) = dispytch.receive_request(method, request_uri=uri)
+        data = dispytch.dispatch(uri, args, kwargs)
+        dump_json(data, doc_args.get('json_file'))
+    except Exception as exc:
+        dump_json({'error': exc.message})
+
+        # For debug purposes
+        import traceback, sys
+        info = sys.exc_info()
+        print ''.join(traceback.format_exception(*info))
 
