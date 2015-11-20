@@ -54,14 +54,11 @@ Exemple:
 
 import os
 import logging
-import ConfigParser
 
-from . import infos, rrd_utils, requests
+from . import infos, requests
 
 
 _log = logging.getLogger("dispytch")
-
-DATADIR = None
 
 
 def selfcheck(config):
@@ -72,16 +69,13 @@ def selfcheck(config):
     try:
         assert config.has_key('config')
         assert config.has_key('datadir')
-        assert config.has_key('rrdext')
     except AssertionError:
         raise RuntimeError("invalid module configuration")
 
     try:
         configure(config)
-        assert DATADIR == config['datadir']
-        assert infos.CONFIG == config['config']
-        assert rrd_utils.DATADIR == config['datadir']
-        assert rrd_utils.RRDEXT == config['rrdext']
+        assert infos.config.datadir == config['datadir']
+        assert infos.config.configpath == config['config']
     except AssertionError:
         raise RuntimeError("unable to configure module")
 
@@ -92,17 +86,9 @@ def configure(config):
     :param dict config: Configuration informations
     """
     _log.debug("module config: {0}".format(config))
-    globals().update({
-        'DATADIR': config.get('datadir'),
-        })
-    infos.CONFIG = config.get('config')
-    rrd_utils.DATADIR = config.get('datadir')
-    rrd_utils.RRDEXT = config.get('rrdext')
+    infos.init_config(config.get('config'), config.get('datadir'))
     try:
-        assert infos.CONFIG is not None
-        assert DATADIR is not None
-        assert rrd_utils.DATADIR is not None
-        assert rrd_utils.RRDEXT is not None
+        assert infos.config is not None
     except AssertionError:
         raise RuntimeError("unconfigured module")
 
@@ -129,9 +115,4 @@ def handle_request(*args, **kwargs):
     _log.debug("arguments: {0}".format(arguments))
 
     # Unknown method will raise exception handled by dispatcher
-    try:
-        # Load munin configuration for requests
-        infos.load_munin_configs()
-        return requests.KNOWN_METHODS[arguments['method']](arguments)
-    except Exception as e:
-        print(e.__repr__())
+    return requests.KNOWN_METHODS[arguments['method']](arguments)
