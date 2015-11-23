@@ -76,7 +76,8 @@ def get_rrd_metrics(path, cf, start, end, opts=[]):
 
     # Munin daemon caches some data and RRD datas is not so fresh
     # Skip None values (which have not been flushed yet)
-    # Timestamps are returned as ms so with are compliant with HighCharts
+    # Timestamps are returned as ms so with are compliant with most of graphing
+    # systems (like Highcharts for example)
     # returned series must be of the form:
     #   [[time, val], [time, val], [time, val], ...]
     series = []
@@ -87,7 +88,7 @@ def get_rrd_metrics(path, cf, start, end, opts=[]):
         for idx, val in enumerate(vals):
             if val is not None:
                 series[idx]['data'].append(
-                        [(starttime + step * vidx) * 1000, val])
+                        ((starttime + step * vidx) * 1000, val))
 
     _log.debug("structured RRD data: {0}".format(series))
     return series
