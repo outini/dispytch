@@ -34,10 +34,6 @@ import rrdtool
 _log = logging.getLogger("dispytch")
 
 
-DATADIR = None
-RRDEXT = "rrd"
-
-
 def fetch_rrd(path, cf, start, end, opts=[]):
     """Fetch informations from rrd file
 
@@ -97,29 +93,27 @@ def get_rrd_metrics(path, cf, start, end, opts=[]):
     return series
 
 
-def get_munin_entry_metrics(poller, entry, datatype, cf, start, end, opts=[]):
-    """Get transformed RRD metrics from munin entry
+def get_munin_entry_metrics(datadir, node, datatype, cf, start, end, opts=[]):
+    """Get transformed RRD metrics from munin node
 
-    :param str poller: Munin poller
-    :param str entry: Munin configuration entry
+    :param str datadir: Directory containing Munin node's RRDs
+    :param str node: Munin node name
     :param str cf: RRD consolidation function to use
     :param str start: Start time
     :param str end: End time
     :param list opts: Additional arguments to pass to rrdtool
 
-    :return: Structured RRD fetched data
-    :rtype: dict
+    :return: Structured RRD fetched data (:class:`dict`)
     """
     # munin RRD files comonly are: <host>-<datatype>-<datasubtype>-<X>.rrd
     # where <host> can contain dashes (-)
     # and <datasubtype> cannot contain dashes (-)
     # selection is made against: <host>-<datatype>-[^-]+-x.rrd
-    rrdsuffix = "-x.{0}".format(RRDEXT)
-    rrdpath = "/".join(entry.split(';')[:-1])
-    host = entry.split(';')[-1]
-    rrdstore = os.path.join(DATADIR, poller, rrdpath)
+    rrdpath = "/".join(node.split(';')[:-1])
+    host = node.split(';')[-1]
+    rrdstore = os.path.join(datadir, rrdpath)
 
-    subtype_pattern = r"{0}-{1}-([^-]+)-.\.{2}".format(host, datatype, RRDEXT)
+    subtype_pattern = r"{0}-{1}-([^-]+)-.\.rrd".format(host, datatype)
     subtype_re = re.compile(subtype_pattern)
 
     _log.debug("rrdstore: ".format(rrdstore))

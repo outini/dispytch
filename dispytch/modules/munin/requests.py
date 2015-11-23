@@ -24,8 +24,13 @@
 """Munin requests module
 """
 
+import logging
 
 from . import infos
+from . import rrd_utils
+
+
+_log = logging.getLogger("dispytch")
 
 
 def handle_request_list(arguments):
@@ -36,48 +41,43 @@ def handle_request_list(arguments):
     :return: Dictionnary of available data
     :rtype: dict
     """
-    info = {}
-    for poller, config in infos.MUNIN_CONFIG.items():
-        pinfo = {}
-        for section in config.sections():
-            pinfo[section] = dict(config.items(section))
-        info[poller] = pinfo
-    #return infos.load_munin_datafile(os.path.join(DATADIR, "a/datafile"))
-    return info
+    target = arguments.get('target')
+
+    if target:
+        available = {target: infos.config.get_node(target)}
+    else:
+        available = {'nodes_list': infos.config.nodes}
+
+    return available
 
 
-def handle_request_byid(kwargs):
+def handle_request_byid(munin_args):
     """Handle "by-id" request
 
-    :param dict args: Dictionnary of arguments
+    :param dict munin_args: Dictionnary of arguments built by Munin module
 
     :return: Dictionnary of fetched data
     :rtype: dict
     """
     # Find specified id from configuration
-    munin_entry = kwargs.get('target')
-    if munin_entry is None:
-        raise ValueError('invalid request')
+    if not munin_args.get('target'):
+        raise ValueError('missing node from request')
 
-    munin_poller = None
-    for poller, config in infos.MUNIN_CONFIG.items():
-        if munin_entry in config.sections():
-            munin_poller = poller
-            break
+    node = infos.config.get_node(munin_args['target'])
+    if not node:
+        raise ValueError('unknown requested node')
 
-    _log.debug("selected munin poller: {0}".format(munin_poller))
-    _log.debug("selected munin entry: {0}".format(munin_entry))
-
-    if munin_poller is None:
-        raise ValueError('target not found')
-
-    return rrd_utils.get_munin_entry_metrics(
-            munin_poller, munin_entry,
-            kwargs.get('datatype'), kwargs.get('cf'),
-            kwargs.get('start'), kwargs.get('stop'))
+    _log.debug("selected munin node: {0}".format(node['__id']))
+    series = rrd_utils.get_munin_entry_metrics(
+                node['__datadir'], node['__id'],
+                munin_args.get('datatype'), munin_args.get('cf'),
+                munin_args.get('start'), munin_args.get('stop'))
 
 
-def handle_request_byip(arguments):
+    return {'series': series}
+
+
+def handle_request_byip(munin_args):
     """Handle "by-ip" request
 
     :param dict arguments: Dictionnary of arguments
@@ -86,26 +86,22 @@ def handle_request_byip(arguments):
     :rtype: dict
     """
     # Find id with specified ip from configuration
-    ipaddr = arguments.get('target')
+    ipaddr = munin_args.get('target')
     if ipaddr is None:
-        raise ValueError('invalid request')
+        raise ValueError('missing IP from request')
 
-    munin_entry = None
-    munin_poller = None
-    for poller, config in infos.MUNIN_CONFIG.items():
-        for section in config.sections():
-            if ('address', ip) in config.items(section):
-                munin_poller = poller
-                munin_entry = section
-                break
+    node = infos.config.get_node_by_ip(munin_args['target'])
+    if not node:
+        raise ValueError('unknown requested IP')
 
-    _log.debug("selected munin poller: {0}".format(munin_poller))
-    _log.debug("selected munin entry: {0}".format(munin_entry))
+    _log.debug("selected munin node: {0}".format(node['__id']))
+    series = rrd_utils.get_munin_entry_metrics(
+                node['__datadir'], node['__id'],
+                munin_args.get('datatype'), munin_args.get('cf'),
+                munin_args.get('start'), munin_args.get('stop'))
 
-    if munin_entry is None or munin_poller is None:
-        raise ValueError('target not found')
 
-    return {}
+    return {'series': series}
 
 
 # Reference known methods to handle

@@ -27,7 +27,6 @@
 
 import os
 import logging
-import ConfigParser
 
 from dispytch import utils
 
@@ -35,49 +34,11 @@ from dispytch import utils
 _log = logging.getLogger("dispytch")
 
 
-CONFIG = None
-MUNIN_CONFIG = None
-
-
-def parse_munin_config(config_lines):
-    """Parse Munin style configuration lines
-
-    :param list config_lines: Lines read from configuration files
-
-    :return: Configuration object
-    :rtype: ConfigParser.RawConfigParser
-    """
-    config = ConfigParser.RawConfigParser()
-    section = None
-    for line in config_lines:
-        # remove comments from line
-        line = line.split('#', 1)[0]
-        if not len(line.strip()):
-            continue
-        if line.startswith('['):
-            section = line[1:-2]
-            try:
-                config.add_section(section)
-            except ConfigParser.DuplicateSectionError:
-                continue
-            continue
-
-        option = line.strip().split(None, 1)
-        try:
-            config.set(section, option[0], option[1])
-        except IndexError:
-            continue
-
-    return config
-
-
-def parse_munin_datafile_line(line):
+def _parse_datafile_line(line):
     """Parse munin datafile line
 
     :param str line: Munin datafile line
-
-    :return: Informations from line
-    :rtype: dict
+    :return: Informations from line (:class:`dict`)
     """
     (entry, infos_str) = line.strip().split(":", 1)
     (tree, value) = infos_str.split(' ', 1)
@@ -92,64 +53,190 @@ def parse_munin_datafile_line(line):
     return {entry: {key: {option: value}}}
 
 
-def load_munin_datafile(datafile_path, filter_str=None):
-    """Load munin datafile containing graphs infos
+class MuninConfig(object):
+    """Simple class to handle Munin configuration and infos
 
-    :param str datafile_path: Munin datafile path
-    :param str filter_str: Filter string to use on data load
-
-    :return: Datafile selected content
-    :rtype: dict
+    This object provides several method for ease of configuration use.
     """
-    # munin datafile describe how graphs should be draw
-    # lines may be one of the following:
-    #   "munin;entry:datatype.key value with spaces"
-    #   "munin;entry:datatype.serie.key value with spaces"
-    data = {}
-    with open(datafile_path, "r") as dfile:
-        for line in dfile.readlines():
-            # Check if line match the provided filter string
-            # Example of filter string:
-            #   my;munin;entry:cpu
-            if filter_str is not None and not line.startswith(filter_str):
+
+    def __init__(self, configpath, datadir, multipollers):
+        """Initialization method
+        """
+        self.configpath = configpath
+        self.datadir = datadir
+        self.multiple_pollers = multipollers == "yes"
+        self._nodes = None
+
+    def clear(self):
+        """Clear loaded configuration
+        """
+        self._nodes = None
+
+    def _parse_config(self, config_lines):
+        """Parse Munin style configuration lines
+
+        :param list config_lines: Lines read from configuration files
+
+        :return: Parsed configuration as structure
+        :rtype: dict
+        """
+        config = {}
+        section = None
+        for line in config_lines:
+            # remove comments from line
+            line = line.split('#', 1)[0].strip()
+            if not len(line):
                 continue
 
-            infos = parse_munin_datafile_line(line.strip())
-            utils.merge_dict(data, infos)
+            if line.startswith('['):
+                section = line[1:-1]
+                if section in config:
+                    raise SyntaxError('duplicate section: %s' % (section,))
 
-    return data
+                config[section] = {}
+                continue
+
+            option = line.strip().split(None, 1)
+            try:
+                config[section].update({option[0]: option[1]})
+            except IndexError:
+                raise SyntaxError('option without value: %s' % (option[0],))
+            except KeyError:
+                raise SyntaxError('orphan option: %s' % (option[0],))
+
+        return config
+
+    def _process_confs(self, path):
+        """Process every ".conf" files found in provided path
+
+        :param str path: Configuration path holding ".conf" files
+        """
+        configlines = []
+        for cfg in os.listdir(path):
+            cfg = os.path.join(path, cfg)
+            if os.path.isfile(cfg) and cfg.endswith('.conf'):
+                configlines.extend(open(cfg, 'r').readlines())
+            else:
+                _log.warning(
+                    'skipping non-configuration element: {0}'.format(cfg))
+
+        return self._parse_config(configlines)
+
+    def load(self):
+        """Load munin configuration files
+        """
+        if self._nodes:
+            _log.debug("munin config already loaded")
+            return None
+
+        _log.debug("loading munin config")
+        _log.debug("configpath: {0}".format(self.configpath))
+
+        if not os.path.isdir(self.configpath):
+            _log.error('provided configuration path is not a directory')
+
+        self._nodes = {}
+        if self.multiple_pollers is True:
+            pollers = os.listdir(self.configpath)
+            _log.debug("listed pollers: {0}".format(pollers))
+            for poller in pollers:
+                configpath = os.path.join(self.configpath, poller)
+                datadir = os.path.join(self.datadir, poller)
+                for node, data in self._process_confs(configpath).items():
+                    data.update({
+                        '__poller': poller,
+                        '__datadir': datadir,
+                        '__datafile': os.path.join(datadir, 'datafile'),
+                        '__id': node
+                        })
+                    self._nodes[node] = data
+        else:
+            for node, data in self._process_confs(configpath).items():
+                data.update({
+                    '__poller': "general",
+                    '__datadir': self.datadir,
+                    '__datafile': os.path.join(self.datadir, 'datafile'),
+                    '__id': node
+                    })
+                self._nodes[node] = data
+
+        _log.debug("{0} nodes loaded".format(len(self._nodes)))
+        _log.debug("munin config loaded")
+
+    def _load_node_graphs(self, node):
+        """Load node's graphs infos from Munin datafile
+
+        :param str node: Munin node name
+        :return: :obj:`None`
+
+        :raise: KeyError if node is missing from configuration
+        :raise: KeyError if '__id' infos is missing from node
+        :raise: KeyError if '__datafile' infos is missing from node
+        """
+        datafile = self._nodes[node]['__datafile']
+        node_id = self._nodes[node]['__id']
+        self._nodes[node]['graphs'] = {}
+
+        # munin datafile describe how graphs should be draw
+        # lines may be one of the following:
+        #   "munin;entry:datatype.key value with spaces"
+        #   "munin;entry:datatype.serie.key value with spaces"
+        with open(datafile, "r") as dfile:
+            for line in dfile.readlines():
+                # Ignore heading line with munin version informations
+                if line.startswith("version "):
+                    continue
+
+                # Check if line match the provided filter string
+                # Example of filter string:
+                #   my;munin;entry:cpu
+                if not line.startswith("{0}:".format(node_id)):
+                    continue
+
+                infos = _parse_datafile_line(line.strip())
+                utils.merge_dict(self._nodes[node]['graphs'],
+                                 infos[node])
+
+    @property
+    def nodes(self):
+        """Get loaded nodes names
+
+        :return: Loaded nodes names (:class:`list`)
+        """
+        if not self._nodes:
+            self.load()
+        return self._nodes.keys()
+
+    def get_node(self, node_name):
+        """Get specific Munin node
+
+        Node configuration and graphs are loaded on call
+
+        :param str node_name: Munin node name
+        :return: Munin node data (:class:`dict`) or :obj:`None`
+        """
+        if node_name in self.nodes:
+            self._load_node_graphs(node_name)
+            return self._nodes[node_name]
+
+    def get_node_by_ip(self, node_ip):
+        """Get specific Munin node by IP
+
+        Node configuration and graphs are loaded on call
+
+        :param str node_ip: Munin node IP address
+        :return: Munin node data (:class:`dict`) or :obj:`None`
+        """
+        for node in self.nodes:
+            if node_ip == self._nodes[node]['address']:
+                self._load_node_graphs(node)
+                return self._nodes[node]
 
 
-def load_munin_configs():
-    """Load munin configuration files from path
-
-    :param str path: Configuration path
-
-    :return: Configuration structure
-    :rtype: dict
+def init_config(configpath, datadir, multipollers):
+    """Initialize MuninConfig object and load configuration
     """
-    configs = {}
+    globals()['config'] = MuninConfig(configpath, datadir, multipollers)
 
-    if MUNIN_CONFIG is not None:
-        _log.debug("munin config already loaded")
-        return MUNIN_CONFIG
 
-    _log.debug("loading munin config")
-    _log.debug("configpath: {0}".format(CONFIG))
-
-    if os.path.isdir(CONFIG):
-        pollers = os.listdir(CONFIG)
-        _log.debug("listed pollers: {0}".format(pollers))
-        for poller in pollers:
-            raw_config = []
-            for cfg in os.listdir(os.path.join(CONFIG, poller)):
-                cfg = os.path.join(CONFIG, poller, cfg)
-                if cfg.endswith('.conf'):
-                    raw_config.extend(open(cfg, 'r').readlines())
-            configs[poller] = parse_munin_config(raw_config)
-
-    _log.debug("munin config loaded")
-    globals()['MUNIN_CONFIG'] = configs
-
-    return MUNIN_CONFIG
-
+config = None
