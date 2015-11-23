@@ -29,8 +29,8 @@ be formatted using document path or url-encoded format.
 
 Usage:
     Using document path:
-      /munin/list[/<ip>]
-      /munin/list[/templates]
+      /munin/list[/<id>]
+      /munin/list[/mutators]
       /munin/by-ip/<ip>/<datatype>/<cf>/<start>/<stop>[/<template>]
       /munin/by-id/<id>/<datatype>/<cf>/<start>/<stop>[/<template>]
     Using url-encoded request:
@@ -86,7 +86,9 @@ def configure(config):
     :param dict config: Configuration informations
     """
     _log.debug("module config: {0}".format(config))
-    infos.init_config(config.get('config'), config.get('datadir'))
+    infos.init_config(config.get('config'),
+                      config.get('datadir'),
+                      config.get('multipollers'))
     try:
         assert infos.config is not None
     except AssertionError:
@@ -102,10 +104,8 @@ def handle_request(*args, **kwargs):
     _log.debug("kwargs: {0}".format(kwargs))
 
     # Converting positionnal args to kwargs
-    # First positionnal arg is always dispatch, skipping it
     args = list(args)
-    args.pop(0)
-    fields = ["method", "target", "datatype", "cf", "start", "stop", "tmpl"]
+    fields = ["method", "target", "datatype", "cf", "start", "stop", "mutator"]
     positionnal_args = dict(zip(fields[:len(args)], args))
 
     # arguments agreggation
