@@ -46,6 +46,31 @@ def transform_series(series, graph_infos, mutator):
         raise ValueError("Unknown mutator for series transformation")
 
 
+def mutate_to_highcharts_pie(series, graph):
+    """Mutate raw RRD series to pie structured series
+
+    Series value are summed to obtain a cumulated value.
+
+    :param dict series: RRD Series
+    :param dict graph: Munin node graph infos
+    :return: Mutated RRD series (:class:`dict`)
+    """
+    _log.debug('mutating series')
+    mutated_series = {
+            'title': {'text': graph.get('graph_title')},
+            'series': []
+        }
+
+    for idx, serie in enumerate(series['series']):
+        infos = graph.get(serie['name'])
+        mutated_series['series'].append({
+            'name': infos.get('label', serie['name']),
+            'y': sum([point[1] for point in serie['data']])
+            })
+
+    return mutated_series
+
+
 def mutate_to_highcharts_timeseries(series, graph):
     """Mutates RRD series for HighCharts timeseries
 
