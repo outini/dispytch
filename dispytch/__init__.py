@@ -188,6 +188,12 @@ def dispatch(docpath, args, kwargs):
     if not module_name or not module_config:
         raise ImportError("No module found to handle the request")
 
+    # Removing dispatch part of the args if any
+    if docpath.startswith(module_config['dispatch']):
+        modargs = docpath.split(module_config['dispatch'])[1]
+        args = modargs.split('/')[1:] # skipping the 1st always empty element
+        _log.debug("cleaned args: {0}".format(args))
+
     try:
         module_fullname = ".modules.{0}".format(module_name)
         module = importlib.import_module(module_fullname, "dispytch")
