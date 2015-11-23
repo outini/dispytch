@@ -31,6 +31,7 @@ import logging
 import logging.config
 import importlib
 import urlparse
+import json
 
 from . import config
 
@@ -84,21 +85,37 @@ def receive_request(method, request_uri=None):
     datas = ([], {})
 
     _log.debug("request method: {0}".format(method))
-    if method == "POST":
-        # read url-encoded input from stdin
-        _log.debug("request type: url-encoded")
-        request = sys.stdin.read()
-        datas[1].update(parse_urlencoded(request))
+    if request_uri is None:
+        raise TypeError("Missing request URI")
 
-    elif method == "GET":
-        if request_uri is None:
-            raise TypeError("Missing request URI while using GET method")
-        if "?" in request_uri:
-            _log.debug("request type: url-encoded")
-            datas[1].update(parse_urlencoded(request_uri.split("?", 1)[-1]))
+    docpath = request_uri
+    urlencoded = None
+    if "?" in request_uri:
+        (docpath, urlencoded) = request_uri.split("?", 1)
+
+    _log.debug("request: parsing documentpath from URI")
+    datas[0].extend(parse_documentpath(docpath))
+
+    if urlencoded:
+        _log.debug("request: parsing url-encoded from URI")
+        datas[1].update(parse_urlencoded(urlencoded))
+
+    if method == "POST":
+        # Typical content type header:
+        #   application/json; charset=utf-8
+        # Charset support will be implemented in future releases
+        content_type = os.environ.get('CONTENT_TYPE').split(';')[0]
+        _log.debug("request content-type: {0}".format(content_type))
+
+        # read posted data from stdin
+        request = sys.stdin.read()
+
+        if content_type == 'application/json':
+            _log.debug("request: parsing json from POST")
+            datas[1].update(json.loads(request))
         else:
-            _log.debug("request type: documentpath")
-            datas[0].extend(parse_documentpath(request_uri))
+            _log.debug("request: parsing url-encoded from POST")
+            datas[1].update(parse_urlencoded(request))
 
     _log.debug("request datas: {0}".format(datas))
     return datas
