@@ -28,6 +28,7 @@ import logging
 
 from . import infos
 from . import rrd_utils
+from . import mutators
 
 
 _log = logging.getLogger("dispytch")
@@ -73,6 +74,11 @@ def handle_request_byid(munin_args):
                 munin_args.get('datatype'), munin_args.get('cf'),
                 munin_args.get('start'), munin_args.get('stop'))
 
+    if munin_args.get('mutator'):
+        _log.debug('sending series to mutators')
+        return mutators.transform_series({'series': series},
+                                         node['graphs'][munin_args.get('datatype')],
+                                         munin_args['mutator'])
 
     return {'series': series}
 
@@ -100,6 +106,10 @@ def handle_request_byip(munin_args):
                 munin_args.get('datatype'), munin_args.get('cf'),
                 munin_args.get('start'), munin_args.get('stop'))
 
+    if munin_args.get('mutator'):
+        _log.debug('sending series to mutators')
+        return mutators.transform_series({'series': series}, node,
+                                         munin_args['mutator'])
 
     return {'series': series}
 
