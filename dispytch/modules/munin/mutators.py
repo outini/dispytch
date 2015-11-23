@@ -39,14 +39,14 @@ def transform_series(series, graph_infos, mutator):
     :return: Mutated RRD series (:class:`dict`)
     """
     try:
-        mutator_func = "mutate_for_{0}".format(mutator)
+        mutator_func = "mutate_to_{0}".format(mutator)
         _log.debug('using mutator function: {0}'.format(mutator_func))
         return globals()[mutator_func](series, graph_infos)
     except KeyError:
         raise ValueError("Unknown mutator for series transformation")
 
 
-def mutate_for_highcharts(series, graph):
+def mutate_to_highcharts(series, graph):
     """Mutates RRD series for HighCharts
 
     :param dict series: RRD Series
