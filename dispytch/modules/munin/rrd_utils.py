@@ -51,9 +51,9 @@ def fetch_rrd(path, cf, start, end, opts=[]):
     :rtype: list
     """
     args = [path,
-            cf,
-            "-s", '%s' % (start),
-            "-e", '%s' % (end),
+            str(cf),
+            "-s", str(start),
+            "-e", str(end),
             ]
     args.extend(opts)
     return rrdtool.fetch(args)
