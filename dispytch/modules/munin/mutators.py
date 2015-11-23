@@ -46,8 +46,8 @@ def transform_series(series, graph_infos, mutator):
         raise ValueError("Unknown mutator for series transformation")
 
 
-def mutate_to_highcharts(series, graph):
-    """Mutates RRD series for HighCharts
+def mutate_to_highcharts_timeseries(series, graph):
+    """Mutates RRD series for HighCharts timeseries
 
     :param dict series: RRD Series
     :param dict graph: Munin node graph infos
