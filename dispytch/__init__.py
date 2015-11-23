@@ -30,6 +30,7 @@ import sys
 import logging
 import logging.config
 import importlib
+import urlparse
 
 from . import config
 
@@ -63,12 +64,12 @@ def parse_urlencoded(string):
     :rtype: dict
     """
     _log.debug("parsing url-encoded: {0}".format(string))
-    kwargs = {}
-    for field in string.split("&"):
-        if "=" in field:
-            key, val = field.split("=", 1)
-            kwargs.update({key: val})
-    return kwargs
+    url_params = {}
+    for key, value in urlparse.parse_qs(string).items():
+        # Forcing single item per key.
+        # Next releases would support multiple items if needed.
+        url_params.update({key: value[0]})
+    return url_params
 
 
 def receive_request(method, request_uri=None):
