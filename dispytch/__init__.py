@@ -185,16 +185,21 @@ def dispatch(docpath, args, kwargs):
     _log.debug("module name: {0}".format(module_name))
     _log.debug("module config: {0}".format(module_config))
 
+    if not module_name or not module_config:
+        raise ImportError("No module found to handle the request")
+
     try:
         module_fullname = ".modules.{0}".format(module_name)
         module = importlib.import_module(module_fullname, "dispytch")
         module.configure(module_config)
         data = module.handle_request(*args, **kwargs)
+    except ImportError:
+        raise ImportError("No module found to handle the request")
     except Exception as exc:
         _log.error("Handled module error: {0}".format(exc.message))
         import traceback, sys
         info = sys.exc_info()
         print ''.join(traceback.format_exception(*info))
-        raise ImportError("No module found to handle the request")
+        raise RuntimeError(exc.message)
 
     return {'result': data}
