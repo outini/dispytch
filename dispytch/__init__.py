@@ -154,7 +154,7 @@ def select_dispatch(docpath, dispatches):
     """
     # dispatches are sorted, so the most precise dispatch is selected
     for entry in sorted(dispatches, reverse=True):
-        if docpath.startswith(entry):
+        if docpath == entry or docpath.startswith("{0}/".format(entry)):
             _log.debug("selected dispatch: {0}".format(entry))
             return dispatches[entry]
 
