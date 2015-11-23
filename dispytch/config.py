@@ -72,6 +72,9 @@ def _parse_conf():
         _config_dict.update({section : {}})
         for option in conf_parser.options(section):
             value = conf_parser.get(section, option)
+            # specific handling of dispatch entries to remove ending "/"
+            if option == "dispatch" and value.endswith('/'):
+                value = value[:-1]
             _config_dict[section].update({option : value})
 
 
