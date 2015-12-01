@@ -1,0 +1,31 @@
+#! /usr/bin/env sh
+
+#
+#    Modular REST API dispatcher in Python (dispytch)
+#
+#    Copyright (C) 2015 Denis Pompilio (jawa) <denis.pompilio@gmail.com>
+#    Copyright (C) 2015 Cyrielle Camanes (cycy) <cyrielle.camanes@gmail.com>
+#
+#    This file is part of dispytch
+#
+#    This program is free software; you can redistribute it and/or
+#    modify it under the terms of the GNU General Public License
+#    as published by the Free Software Foundation; either version 2
+#    of the License, or (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program; if not, see <http://www.gnu.org/licenses/>.
+
+# This script is provided for fastcgi and wsgi usage. It calls the main
+# `dispytch` script passing the --rest arguments.
+# Please read the `dispytch` script's usage for more informations.
+
+# This wrapper assumes that the `dispytch` main script is available in your
+# PATH. If not, you may need to use the PATH manipulation below.
+
+dispytch --rest
