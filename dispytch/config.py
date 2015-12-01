@@ -24,60 +24,92 @@
 import ConfigParser
 import os
 
-EXIT_CFG_SYNTAX=1
 
-_CONF_NAME='dispytch.conf'
+__CONFIG = {}
+CONFIG_FILE = 'dispytch.conf'
 
-_config_dict = {}
+# dirty patch for development
+CONFIG_FILE = os.path.sep.join([os.path.dirname(__file__), CONFIG_FILE])
 
-def _get_file_path():
-    """Get file path
 
-    :return: path
-    :rtype: string
+
+
+class ConfigurationError(Exception):
+    """Custom configuration error exception
     """
-    return os.path.sep.join([os.path.dirname(__file__), _CONF_NAME])
 
 
-def _load_config_file():
+def __load_config_file():
     """Load config file
 
     Configuration file dispytch.conf should be in dispytch directory
-    
+
     :return: ConfigParser
     """
-    config_file = _get_file_path()
+    try:
+        assert os.path.isfile(CONFIG_FILE)
+        assert os.access(CONFIG_FILE, os.R_OK)
+    except AssertionError:
+        message = 'File {0} not found or not readable'.format(CONFIG_FILE)
+        raise ConfigurationError(message)
+
     conf_parser = ConfigParser.RawConfigParser()
 
-    if not os.path.isfile(config_file) or not os.access(config_file, os.R_OK):
-        print('File {0} not found or not readable'.format(config_file))
-        exit(EXIT_CFG_SYNTAX)
-
     try:
-        conf_parser.read(config_file)
+        conf_parser.read(CONFIG_FILE)
     except ConfigParser.ParsingError as e:
-        print(e.message)
-        exit(EXIT_CFG_SYNTAX)
+        raise ConfigurationError(e.message)
 
     return conf_parser
 
 
-def _parse_conf():
+def __parse_conf():
     """Parse configuratiguration file and translate it as structure
 
     :return: Configuration
     :rtype: dict
     """
-    conf_parser = _load_config_file()
+    conf_parser = __load_config_file()
 
     for section in conf_parser.sections():
-        _config_dict.update({section : {}})
+        __CONFIG.update({section : {}})
         for option in conf_parser.options(section):
             value = conf_parser.get(section, option)
-            # specific handling of dispatch entries to remove ending "/"
-            if option == "dispatch" and value.endswith('/'):
+            # specific handling of some entries to remove ending "/"
+            if option in ["dispatch", "location"] and value.endswith('/'):
                 value = value[:-1]
-            _config_dict[section].update({option : value})
+            __CONFIG[section].update({option : value})
+
+
+def __get_dispatches():
+    """Get list of sections where dispatch value is set
+
+    :return: list of sections with dispatch
+    :rtype: dict
+    """
+    dispatches = {}
+    for section, opts in __CONFIG.items():
+        if 'dispatch' in opts:
+            dispatches.update({opts['dispatch']: section})
+    return dispatches
+
+
+def __configure():
+    """Configure dispytch
+    """
+    __parse_conf()
+    cfg = get_section('dispytch')
+
+    # configure module's global attributes
+    globals()['location'] = cfg['location']
+    globals()['modules_path'] = cfg['modules']
+    globals()['mutators_path'] = cfg['mutators']
+    globals()['dispatches'] = __get_dispatches()
+    globals()['internal_dispatches'] = {
+            '{0}/info'.format(location): "info",
+            '{0}/modules'.format(location): "list_modules",
+            '{0}/mutators'.format(location): "list_mutators"
+            }
 
 
 def print_section(section):
@@ -87,7 +119,7 @@ def print_section(section):
     """
     print("# Section: {0}".format(section))
     print("#=========={0}".format("="*len(section)))
-    for opt, value in _config_dict.get(section).items():
+    for opt, value in __CONFIG.get(section).items():
         print("#  - {0}: {1}".format(opt, value))
     print("#")
 
@@ -98,7 +130,7 @@ def get_sections():
     :return: list of sections
     :rtype: list
     """
-    return _config_dict.keys()
+    return __CONFIG.keys()
 
 
 def get_section(section):
@@ -109,22 +141,7 @@ def get_section(section):
     :return: options
     :rtype: dict
     """
-    return _config_dict.get(section)
-
-
-def dispatch_list():
-    """Get list of sections where dispatch value is set
-
-    :return: list of sections with dispatch
-    :rtype: dict
-    """
-    dispatch_dict = {}
-
-    for section, opts in _config_dict.items():
-        if 'dispatch' in opts:
-            dispatch_dict.update({opts['dispatch']: section})
-
-    return dispatch_dict
+    return __CONFIG.get(section)
 
 
 def get_dispatch(dispatch):
@@ -135,11 +152,11 @@ def get_dispatch(dispatch):
     :return: related section with options
     :rtype: tuple
     """
-    for section in _config_dict:
-        if _config_dict[section].has_key('dispatch'):
-            value = _config_dict[section].get('dispatch')
+    for section in __CONFIG:
+        if __CONFIG[section].has_key('dispatch'):
+            value = __CONFIG[section].get('dispatch')
             if value == dispatch:
-                return (section, _config_dict[section])
+                return (section, __CONFIG[section])
 
     return (None, {})
 
@@ -198,4 +215,4 @@ def logging():
 
 
 # Automatic load of configuration
-_parse_conf()
+__configure()

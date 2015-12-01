@@ -93,8 +93,9 @@ if __name__ == "__main__":
         exit(1)
 
     try:
-        (args, kwargs) = dispytch.receive_request(method, request_uri=uri)
-        data = dispytch.dispatch(uri, args, kwargs)
+        (mod, args, kwargs) = dispytch.receive_request(method, request_uri=uri)
+        data = dispytch.dispatch(mod, args, kwargs)
         dump_json(data, doc_args.get('json_file'))
+
     except Exception as exc:
         dump_json({'error': exc.message})

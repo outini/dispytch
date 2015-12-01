@@ -34,7 +34,9 @@ import importlib
 import urlparse
 import json
 
-from . import config
+# import config
+# mutators are imported on-demand later
+from dispytch import config
 
 
 EXIT_USAGE = 2
@@ -44,6 +46,57 @@ logging.config.dictConfig(config.logging())
 _log = logging.getLogger("dispytch")
 
 _INTERNAL_SECTIONS = ('logging',)
+
+
+class MutatorError(Exception):
+    """Custom exception to handle mutator errors
+    """
+
+
+def get_module(module_name, path):
+    try:
+        _log.debug("importing {0} from {1}".format(module_name, path))
+        # If a previous module with the same name exists, clean it
+        # I don't know if there is a better way, this may not be pythonic
+        if module_name in sys.modules:
+            sys.modules.pop(module_name)
+        sys.path.insert(0, path)
+        module = importlib.import_module(module_name)
+        _log.debug("imported: {0}".format(module.__file__))
+    finally:
+        sys.path.pop(sys.path.index(path))
+    return module
+
+
+def get_mutator(mutator_fullname):
+    """Get mutator function
+
+    Mutator full name has to include module name:
+        <mutator_module>.<transform>
+    Returned mutator function will be:
+        <mutator_module>.mutate_to_<transform>
+
+    :param str mutator_fullname: Mutator's function name
+    :return: Mutator function handler
+    """
+    if '.' not in mutator_fullname:
+        raise MutatorError("Invalid mutator name: {0}".format(mutator_fullname))
+
+    (module_name, transform) = mutator_fullname.split('.')
+    module = get_module(module_name, config.mutators_path)
+    _log.debug("getting mutator function: mutate_to_{0}".format(transform))
+    return getattr(module, "mutate_to_{0}".format(transform))
+
+
+# modules path in config
+# mutators path in config
+# mutators are called using <mutator_module>.|mutate_to_|<transform>
+# json:   mutator: munin.highcharts => munin.mutate_to_highcharts
+#
+# Method to list available mutator modules.mutate_to_* methods
+# Direct call on series transformation
+# Modify function above
+# import_file('/home/somebody/somemodule.py')
 
 
 def parse_documentpath(string):
@@ -74,20 +127,30 @@ def parse_urlencoded(string):
     return url_params
 
 
-def receive_request(method, request_uri=None):
+def receive_request(method, request_uri):
     """Receive request for the specified method
 
     :param str method: Method used for the request, may be GET or POST
-    :param str request_uri: Request URI while using method GET
+    :param str request_uri: Request URI
 
-    :return: Parsed positionnal and named arguments as :func:`tuple`
+    :return: Module name, parsed "args" and "kwargs" as :func:`tuple`
     :rtype: tuple
     """
-    datas = ([], {})
-
     _log.debug("request method: {0}".format(method))
-    if request_uri is None:
-        raise TypeError("Missing request URI")
+
+    if request_uri.startswith(config.location):
+        # Stripping dispytch location from URI
+        request_uri = request_uri[len(config.location):]
+
+    _log.debug('request URI: {0}'.format(request_uri))
+    (dispatch, module_name) = select_dispatch(request_uri, config.dispatches)
+
+    # Cleaning module's dispatch from positionnal arguments
+    if request_uri.startswith(dispatch):
+        request_uri = request_uri[len(dispatch):]
+
+    _log.debug('request target module: {0}'.format(module_name))
+    datas = (module_name, [], {})
 
     docpath = request_uri
     urlencoded = None
@@ -95,11 +158,11 @@ def receive_request(method, request_uri=None):
         (docpath, urlencoded) = request_uri.split("?", 1)
 
     _log.debug("request: parsing documentpath from URI")
-    datas[0].extend(parse_documentpath(docpath))
+    datas[1].extend(parse_documentpath(docpath))
 
     if urlencoded:
         _log.debug("request: parsing url-encoded from URI")
-        datas[1].update(parse_urlencoded(urlencoded))
+        datas[2].update(parse_urlencoded(urlencoded))
 
     if method == "POST":
         # Typical content type header:
@@ -113,10 +176,10 @@ def receive_request(method, request_uri=None):
 
         if content_type == 'application/json':
             _log.debug("request: parsing json from POST")
-            datas[1].update(json.loads(request))
+            datas[2].update(json.loads(request))
         else:
             _log.debug("request: parsing url-encoded from POST")
-            datas[1].update(parse_urlencoded(request))
+            datas[2].update(parse_urlencoded(request))
 
     _log.debug("request datas: {0}".format(datas))
     return datas
@@ -142,25 +205,22 @@ def info():
     return cur_config
 
 
-_DISPATCH_INTERNAL = {'/info': info}
-
-
 def select_dispatch(docpath, dispatches):
     """Select matching dispatch from dispatches infos
 
     :param str docpath: Requested path
     :param dict dispatches: Dictionnary of dispatches and associated modules
 
-    :return: Matched dispatch target or None
+    :return: Selected dispatch and dispatch target or None
     """
     # dispatches are sorted, so the most precise dispatch is selected
     for entry in sorted(dispatches, reverse=True):
         if docpath == entry or docpath.startswith("{0}/".format(entry)):
             _log.debug("selected dispatch: {0}".format(entry))
-            return dispatches[entry]
+            return (entry, dispatches[entry])
 
 
-def dispatch(docpath, args, kwargs):
+def dispatch(module_name, args, kwargs):
     """Dispatch request args and kwargs to the selected module
 
     :param str docpath: Document path called
@@ -171,42 +231,50 @@ def dispatch(docpath, args, kwargs):
     :rtype: dict
     """
     data = None
-    module_name = None
     module_config = {}
 
     # retrieve the required known module using dispatch info from document path
-    _log.info("handling new dispatch: {0}".format(docpath))
+    _log.info("handling new dispatch: {0}".format(module_name))
 
-    dispatch_target = select_dispatch(docpath, _DISPATCH_INTERNAL)
-    if dispatch_target is not None:
-        return {'result': dispatch_target()}
+    # How to handle internal dispatches ?
+    #if dispatch_target is not None:
+    #    return {'result': dispatch_target()}
 
-    module_name = select_dispatch(docpath, config.dispatch_list())
     module_config = config.get_section(module_name)
-    _log.debug("module name: {0}".format(module_name))
     _log.debug("module config: {0}".format(module_config))
 
-    if not module_name or not module_config:
+    if not module_config:
         raise ImportError("No module found to handle the request")
-
-    # Removing dispatch part of the args if any
-    if docpath.startswith(module_config['dispatch']):
-        modargs = docpath.split(module_config['dispatch'])[1]
-        args = modargs.split('/')[1:] # skipping the 1st always empty element
-        _log.debug("cleaned args: {0}".format(args))
 
     try:
-        module_fullname = ".modules.{0}".format(module_name)
-        module = importlib.import_module(module_fullname, "dispytch")
+        module = get_module(module_name, config.modules_path)
         module.configure(module_config)
         data = module.handle_request(*args, **kwargs)
+
     except ImportError:
         raise ImportError("No module found to handle the request")
+
     except Exception as exc:
-        _log.error("Handled module error: {0}".format(exc.message))
-        import traceback, sys
-        info = sys.exc_info()
-        print ''.join(traceback.format_exception(*info))
+        _log.error("handled module error: {0}".format(exc.message))
         raise RuntimeError(exc.message)
 
-    return {'result': data}
+    if kwargs.get('mutator'):
+        try:
+            mutator_name = kwargs['mutator']
+            mutator_opts = kwargs.get('mutator_opts')
+
+            _log.debug('selected mutator: {0}'.format(mutator_name))
+            mutator = get_mutator(mutator_name)
+
+            _log.debug('sending series to mutator')
+            return {'result': mutator(module_name, data[0], data[1],
+                                      options=mutator_opts)}
+
+        except ImportError, AttributeError:
+            raise ImportError("No mutator found to transform the response")
+
+        except Exception as exc:
+            _log.error("handled mutator error: {0}".format(exc.message))
+            raise RuntimeError(exc.message)
+
+    return {'result': data[1]}
