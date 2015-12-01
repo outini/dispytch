@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+# coding: utf8
 
 #
 #    Modular REST API dispatcher in Python (dispytch)
@@ -105,7 +105,7 @@ def handle_request(*args, **kwargs):
 
     # Converting positionnal args to kwargs
     args = list(args)
-    fields = ["method", "target", "datatype", "cf", "start", "stop", "mutator"]
+    fields = ["method", "target", "datatype", "cf", "start", "stop"]
     positionnal_args = dict(zip(fields[:len(args)], args))
 
     # arguments agreggation

@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+# coding: utf8
 
 #
 #    Modular REST API dispatcher in Python (dispytch)
@@ -28,7 +29,6 @@ import logging
 
 from . import infos
 from . import rrd_utils
-from . import mutators
 
 
 _log = logging.getLogger("dispytch")
@@ -49,7 +49,7 @@ def handle_request_list(arguments):
     else:
         available = {'nodes_list': infos.config.nodes}
 
-    return available
+    return (None, available)
 
 
 def handle_request_byid(munin_args):
@@ -74,13 +74,8 @@ def handle_request_byid(munin_args):
                 munin_args.get('datatype'), munin_args.get('cf'),
                 munin_args.get('start'), munin_args.get('stop'))
 
-    if munin_args.get('mutator'):
-        _log.debug('sending series to mutators')
-        return mutators.transform_series({'series': series},
-                                         node['graphs'][munin_args.get('datatype')],
-                                         munin_args['mutator'])
-
-    return {'series': series}
+    graph_info = node.get('graphs', {}).get(munin_args.get('datatype'))
+    return (graph_info, series)
 
 
 def handle_request_byip(munin_args):
@@ -106,12 +101,8 @@ def handle_request_byip(munin_args):
                 munin_args.get('datatype'), munin_args.get('cf'),
                 munin_args.get('start'), munin_args.get('stop'))
 
-    if munin_args.get('mutator'):
-        _log.debug('sending series to mutators')
-        return mutators.transform_series({'series': series}, node,
-                                         munin_args['mutator'])
-
-    return {'series': series}
+    graph_info = node.get('graphs', {}).get(munin_args.get('datatype'))
+    return (graph_info, series)
 
 
 # Reference known methods to handle

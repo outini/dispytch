@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+# coding: utf8
 
 #
 #    Modular REST API dispatcher in Python (dispytch)
@@ -68,7 +69,8 @@ def get_rrd_metrics(path, cf, start, end, opts=[]):
     :rtype: dict
     """
     rrd_datas = fetch_rrd(path, cf, start, end)
-    _log.debug("fetched RRD data: {0}".format(rrd_datas))
+    _log.debug("fetched RRD data infos: {0}".format(rrd_datas[0]))
+    _log.debug("fetched RRD data series: {0}".format(len(rrd_datas[1])))
 
     (starttime, stoptime, step) = rrd_datas[0]
     names = rrd_datas[1]
@@ -90,7 +92,9 @@ def get_rrd_metrics(path, cf, start, end, opts=[]):
                 series[idx]['data'].append(
                         ((starttime + step * vidx) * 1000, val))
 
-    _log.debug("structured RRD data: {0}".format(series))
+    for idx, serie in enumerate(series):
+        _log.debug("serie {0} RRD data points: {1}".format(idx,
+                                                           len(serie['data'])))
     return series
 
 
@@ -122,7 +126,7 @@ def get_munin_entry_metrics(datadir, node, datatype, cf, start, end, opts=[]):
     rrd_candidates = {}
     for rrdfile in os.listdir(rrdstore):
         subtype = subtype_re.match(rrdfile)
-        if subtype is not None:
+        if subtype:
             subtype_name = subtype.groups()[0]
             rrd_candidates.update({
                 subtype_name: os.path.join(rrdstore, rrdfile)
@@ -135,7 +139,7 @@ def get_munin_entry_metrics(datadir, node, datatype, cf, start, end, opts=[]):
     #              'data': [[time, val], [time, val], [time, val], ...]},
     #             {'name': "serieB",
     #              'data': [[time, val], [time, val], [time, val], ...]},
-    # get_rrd_metrics already returned this format
+    # get_rrd_metrics already returns this format
     # however, munin does not use rrd field name and set it to '42'
     # we replace this fake field name with extracted subtype from file name
     # munin's rrd contains only one field, so we aggregate multiple RRD data
@@ -150,5 +154,5 @@ def get_munin_entry_metrics(datadir, node, datatype, cf, start, end, opts=[]):
         serie = {'name': subtype, 'data': rrd_metrics[0]['data']}
         series.append(serie)
 
-    return series
+    return {node: {datatype: series}}
 
