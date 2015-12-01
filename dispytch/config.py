@@ -1,3 +1,5 @@
+# coding: utf8
+
 #
 #    Modular REST API dispatcher in Python (dispytch)
 #

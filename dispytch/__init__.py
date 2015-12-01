@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+# coding: utf8
 
 #
 #    Modular REST API dispatcher in Python (dispytch)
