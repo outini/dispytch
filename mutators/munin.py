@@ -38,8 +38,23 @@ _log = logging.getLogger("dispytch")
 # memory: 'free', 'cached', 'apps', 'buffers', 'slab'
 #    suppress: 'active', 'inactive', 'committed'
 
-_draw_convertion = {"LINE2": "spline",
-                    "AREA": "areaspline"}
+# Converts RRD tool draws to Highcharts types
+def __convert_draw(serie_cfg):
+    """Convert draw information to highcharts type
+
+    :param dict serie_cfg: Serie configuration entry
+    :return: Highcharts type (:class:`str`)
+    """
+    if not serie_cfg.get('draw'):
+        return 'spline'
+
+    if serie_cfg['draw'].startswith('LINE'):
+        return 'spline'
+
+    if serie_cfg['draw'] == 'AREA':
+        return 'areaspline'
+
+    return 'spline'
 
 
 def __order_series(series, order):
@@ -205,20 +220,16 @@ def mutate_to_highcharts(module_name, info, data, options=None):
     if len(series_order):
         series = __order_series(series, series_order)
 
-    stackable_serie = False
-    for entry in info.values():
-        try:
-            #_log.debug(entry.get('draw'))
-            if entry.get('draw') == 'STACK':
-                stackable_serie = True
-                break
-        except Exception:
-            continue
-
+    # loop on series to define extensions to apply on next loop
     series_to_negate = []
     stacks = {}
     for serie in series:
+        _log.debug("extending serie: {0} (pass#1)".format(serie['name']))
         s_info = info.get(serie['name'], {})
+
+        # specific for "df*" plugins with wrong labels
+        if serie.get('__datatype', '').startswith('df'):
+            serie['name'] = s_info.get('label', serie['name'])
 
         # handle series to negate (ie. network)
         if s_info.get('negative'):
@@ -226,26 +237,23 @@ def mutate_to_highcharts(module_name, info, data, options=None):
 
         # handle stackable series
         if s_info.get('draw') == 'STACK':
-            if previous[0] not in stacks:
-                stacks[previous[0]] = previous[0]
-            s_info['draw'] = previous[1]
-            stacks[serie['name']] = previous[0]
+            if prev_name not in stacks:
+                stacks[prev_name] = {'stack': prev_name,
+                                     'stacking': 'normal'}
+            s_info['draw'] = prev_draw
+            stacks[serie['name']] = stacks[prev_name]
         else:
-            previous = (serie['name'], s_info.get('draw'))
+            (prev_name, prev_draw) = (serie['name'], s_info.get('draw'))
 
-    for idx, serie in enumerate(series):
-        _log.debug("extending serie: {0}".format(serie['name']))
-        s_info = info.get(serie['name'], {})
+        # convert RRDTool draw to Highcharts type
+        serie['type'] = __convert_draw(s_info)
 
-        serie['type'] = _draw_convertion.get(s_info.get('draw'), "spline")
+    # Loop on series to apply "stack" and "negate" extensions
+    for serie in series:
+        _log.debug("extending serie: {0} (pass#2)".format(serie['name']))
 
         if serie['name'] in stacks:
-            serie['stack'] = stacks.get(serie['name'])
-            serie['stacking'] = 'normal'
-
-        # specific for "df" series with wrong labels
-        if serie.get('__datatype', '').startswith('df'):
-            serie['name'] = s_info.get('label', serie['name'])
+            serie.update(stacks[serie['name']])
 
         if serie['name'] in series_to_negate:
             serie['data'] = __negate_serie(serie['data'])
@@ -253,6 +261,3 @@ def mutate_to_highcharts(module_name, info, data, options=None):
         mutated_series['series'].append(serie)
 
     return mutated_series
-
-
-mutate_to_highcharts_timeseries = mutate_to_highcharts
